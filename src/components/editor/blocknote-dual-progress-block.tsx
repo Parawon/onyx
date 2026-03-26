@@ -14,14 +14,22 @@ export const dualProgressBlock = createReactBlockSpec(
     propSchema: {
       p1: { default: 50 },
       p2: { default: 50 },
+      /** Set true when inserting from slash menu; view opens dialog then clears. */
+      openPrompt: { default: false, type: "boolean" },
     },
     content: "none",
   },
   {
     /** Let clicks hit our controls instead of ProseMirror moving the caret / “next line”. */
     meta: { selectable: false },
-    render: ({ block }) => (
-      <DualProgressBlockView p1={block.props.p1} p2={block.props.p2} />
+    render: ({ block, editor }) => (
+      <DualProgressBlockView
+        block={block}
+        editor={editor}
+        p1={block.props.p1}
+        p2={block.props.p2}
+        openPrompt={block.props.openPrompt}
+      />
     ),
   },
 );

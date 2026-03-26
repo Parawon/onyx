@@ -18,10 +18,14 @@ export function createOnyxSlashMenuGetItems(editor: BlockNoteEditor<any, any, an
       group: "Onyx",
       aliases: ["progress", "dual", "metrics", "bar"],
       onItemClick: () => {
-        insertOrUpdateBlockForSlashMenu(editor, {
+        const inserted = insertOrUpdateBlockForSlashMenu(editor, {
           type: "dualProgress",
-          props: { p1: 50, p2: 50 },
+          props: { p1: 50, p2: 50, openPrompt: true },
         });
+        // Re-apply after cursor moves / internal updates so the node view sees `openPrompt`.
+        window.setTimeout(() => {
+          editor.updateBlock(inserted, { props: { openPrompt: true } });
+        }, 0);
       },
       icon: <BarChart2 className="size-[18px]" aria-hidden />,
     };
