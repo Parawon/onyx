@@ -11,6 +11,8 @@ import { api } from "../../../convex/_generated/api";
 import { onyxBlockNoteSchema } from "./blocknote-schema";
 import { useEditorSaveState } from "./editor-save-state-provider";
 import { createOnyxSlashMenuGetItems } from "./onyx-blocknote-slash-menu";
+import { onyxSlashMenuFloatingOptions } from "./onyx-slash-menu-floating";
+import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -85,7 +87,12 @@ export const BlockNoteCanvas = ({
       slashMenu={false}
       onChange={() => setSerializedContent(JSON.stringify(editor.document))}
     >
-      <SuggestionMenuController triggerCharacter="/" getItems={slashMenuItems} />
+      <SuggestionMenuController
+        triggerCharacter="/"
+        getItems={slashMenuItems}
+        floatingUIOptions={onyxSlashMenuFloatingOptions}
+        suggestionMenuComponent={ScrollableSuggestionMenu}
+      />
     </BlockNoteView>
   );
 };

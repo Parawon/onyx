@@ -1,6 +1,8 @@
+"use client";
+
 import { createReactBlockSpec } from "@blocknote/react";
 
-import { DualProgressBar } from "@/components/goals/dual-progress-bar";
+import { DualProgressBlockView } from "@/components/goals/dual-progress-block-view";
 
 /**
  * BlockNote block: stacked dual metrics using {@link DualProgressBar}.
@@ -16,8 +18,10 @@ export const dualProgressBlock = createReactBlockSpec(
     content: "none",
   },
   {
+    /** Let clicks hit our controls instead of ProseMirror moving the caret / “next line”. */
+    meta: { selectable: false },
     render: ({ block }) => (
-      <DualProgressBar p1={block.props.p1} p2={block.props.p2} className="max-w-xl py-1" />
+      <DualProgressBlockView p1={block.props.p1} p2={block.props.p2} />
     ),
   },
 );

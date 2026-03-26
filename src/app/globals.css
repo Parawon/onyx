@@ -41,3 +41,42 @@ body {
   background: rgba(9, 9, 11, 0.85);
   backdrop-filter: blur(12px);
 }
+
+/*
+ * ScrollableSuggestionMenu: only the outer .onyx-slash-menu-scroll scrolls.
+ * BlockNote’s .bn-suggestion-menu also sets overflow-y: auto — that caused double scrollbars.
+ */
+.bn-container .onyx-slash-menu-scroll .bn-suggestion-menu {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Dual progress “track tasks” popover — match BlockNote suggestion menu surface */
+.bn-mantine .bn-dual-progress-popover {
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(72vh, calc(100dvh - 4rem));
+  overflow-y: auto;
+  background-color: var(--bn-colors-menu-background);
+  border: var(--bn-border);
+  border-radius: var(--bn-border-radius-medium);
+  box-shadow: var(--bn-shadow-medium);
+  color: var(--bn-colors-menu-text);
+  font-family: var(--bn-font-family);
+  padding: 10px;
+}
+
+.bn-mantine .bn-dual-progress-popover__muted {
+  color: var(--bn-colors-menu-text);
+  opacity: 0.72;
+}
+
+.bn-mantine .bn-dual-progress-popover__close {
+  border-radius: var(--bn-border-radius-small);
+  color: var(--bn-colors-menu-text);
+}
+
+.bn-mantine .bn-dual-progress-popover__close:hover {
+  background-color: var(--bn-colors-hovered-background);
+  color: var(--bn-colors-hovered-text);
+}
