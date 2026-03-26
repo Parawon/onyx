@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
   type SyntheticEvent,
 } from "react";
@@ -29,8 +30,48 @@ export function DualProgressBlockView({
   editor,
 }: DualProgressBlockViewProps) {
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [popoverCoords, setPopoverCoords] = useState<{
+    top: number;
+    left: number;
+    transform: string;
+  } | null>(null);
 
   const close = useCallback(() => setOpen(false), []);
+
+  const updatePopoverPosition = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el || !open) return;
+
+    const rect = el.getBoundingClientRect();
+    const gap = 8;
+    const margin = 8;
+    const approxPopoverWidth = Math.min(22 * 16, window.innerWidth - 2 * margin);
+    const centerX = rect.left + rect.width / 2;
+    const left = Math.max(
+      margin + approxPopoverWidth / 2,
+      Math.min(centerX, window.innerWidth - margin - approxPopoverWidth / 2),
+    );
+
+    const approxHeight = 280;
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    const placeBelow = spaceBelow >= approxHeight || spaceBelow >= spaceAbove;
+
+    if (placeBelow) {
+      setPopoverCoords({
+        top: rect.bottom + gap,
+        left,
+        transform: "translateX(-50%)",
+      });
+    } else {
+      setPopoverCoords({
+        top: rect.top - gap,
+        left,
+        transform: "translate(-50%, -100%)",
+      });
+    }
+  }, [open]);
 
   /**
    * Slash menu sets `openPrompt` on the block. Open before paint; clear the flag on a macrotask
@@ -47,14 +88,28 @@ export function DualProgressBlockView({
     return () => window.clearTimeout(t);
   }, [openPrompt, block, editor]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setPopoverCoords(null);
+      return;
+    }
+    updatePopoverPosition();
+  }, [open, updatePopoverPosition, p1, p2]);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, close]);
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open, close, updatePopoverPosition]);
 
   const openDialog = useCallback((e: SyntheticEvent) => {
     e.stopPropagation();
@@ -62,19 +117,27 @@ export function DualProgressBlockView({
   }, []);
 
   const overlay =
-    open && typeof document !== "undefined" ? (
-      <div
-        className="bn-dual-progress-popover-backdrop fixed inset-0 z-[10000] flex items-center justify-center bg-transparent p-4"
-        role="presentation"
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDownCapture={(e) => e.stopPropagation()}
-        onClick={close}
-      >
+    open && typeof document !== "undefined" && popoverCoords ? (
+      <>
+        <div
+          className="bn-dual-progress-popover-backdrop fixed inset-0 z-[10000] bg-transparent"
+          role="presentation"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onClick={close}
+        />
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="dual-progress-track-title"
-          className="bn-dual-progress-popover relative"
+          className="bn-dual-progress-popover fixed z-[10001] max-h-[min(72vh,calc(100dvh-1rem))] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto"
+          style={{
+            top: popoverCoords.top,
+            left: popoverCoords.left,
+            transform: popoverCoords.transform,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDownCapture={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -101,12 +164,13 @@ export function DualProgressBlockView({
             <li>Task C (placeholder)</li>
           </ul>
         </div>
-      </div>
+      </>
     ) : null;
 
   return (
     <>
       <button
+        ref={anchorRef}
         type="button"
         className="w-full rounded-md text-left outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-sky-500"
         onMouseDown={(e) => {

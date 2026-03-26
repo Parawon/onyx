@@ -299,7 +299,7 @@ export function DocumentSidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-zinc-800 bg-black font-medium antialiased tracking-tight",
+        "sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-zinc-800 bg-black font-medium antialiased tracking-tight",
         narrow ? ICON_RAIL : "w-64 border-zinc-900",
         !narrow && "font-['Inter',var(--font-inter),sans-serif] text-sm tracking-tight",
       )}

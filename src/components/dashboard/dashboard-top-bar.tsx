@@ -6,7 +6,7 @@ import { AuthButton } from "@/components/auth/user-button";
 
 export function DashboardTopBar() {
   return (
-    <header className="flex h-20 w-full shrink-0 items-center justify-between border-b border-zinc-800 bg-black px-8">
+    <header className="relative z-30 flex h-20 w-full shrink-0 items-center justify-between border-b border-zinc-800 bg-black px-8">
       <div className="flex items-center gap-4" />
       <div className="flex items-center gap-6">
         <div className="group relative">

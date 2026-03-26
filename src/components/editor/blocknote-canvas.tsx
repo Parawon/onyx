@@ -3,7 +3,7 @@
 import type { PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -17,10 +17,12 @@ import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
-type BlockNoteCanvasProps = {
-  documentId: Id<"documents">;
+export type BlockNoteCanvasProps = {
   initialContent: string;
-};
+} & (
+  | { kind: "document"; documentId: Id<"documents"> }
+  | { kind: "goals" }
+);
 
 const parseBlocks = (content: string): PartialBlock[] | undefined => {
   try {
@@ -34,14 +36,26 @@ const parseBlocks = (content: string): PartialBlock[] | undefined => {
   }
 };
 
-export const BlockNoteCanvas = ({
-  documentId,
-  initialContent,
-}: BlockNoteCanvasProps) => {
+export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
+  const { initialContent, kind } = props;
+  const documentId = kind === "document" ? props.documentId : undefined;
   const updateDocument = useMutation(api.documents.update);
-  const { markError, markSaved, markSaving } = useEditorSaveState();
+  const updateGoalsContent = useMutation(api.goals.updateContent);
+  const {
+    markError,
+    markSaved,
+    markSaving,
+    resetAutosaveUiForEdit,
+    setAutosaveVisible,
+  } = useEditorSaveState();
   const initialBlocks = useMemo(() => parseBlocks(initialContent), [initialContent]);
   const [serializedContent, setSerializedContent] = useState(initialContent);
+  /** Last persisted value (or server initial); used to skip autosave when unchanged and to hide autosave UI. */
+  const baselineRef = useRef(initialContent);
+
+  useEffect(() => {
+    baselineRef.current = initialContent;
+  }, [initialContent]);
 
   const editor = useCreateBlockNote({
     schema: onyxBlockNoteSchema,
@@ -51,17 +65,20 @@ export const BlockNoteCanvas = ({
   const slashMenuItems = useMemo(() => createOnyxSlashMenuGetItems(editor), [editor]);
 
   useEffect(() => {
-    if (serializedContent === initialContent) {
+    if (serializedContent === baselineRef.current) {
       return;
     }
 
     markSaving();
     const timeoutId = window.setTimeout(() => {
-      void updateDocument({
-        id: documentId,
-        content: serializedContent,
-      })
+      const save =
+        kind === "document"
+          ? updateDocument({ id: documentId!, content: serializedContent })
+          : updateGoalsContent({ content: serializedContent });
+      void save
         .then(() => {
+          baselineRef.current = serializedContent;
+          setAutosaveVisible(false);
           markSaved();
         })
         .catch(() => {
@@ -72,27 +89,39 @@ export const BlockNoteCanvas = ({
     return () => window.clearTimeout(timeoutId);
   }, [
     documentId,
-    initialContent,
+    kind,
     markError,
     markSaved,
     markSaving,
     serializedContent,
+    setAutosaveVisible,
     updateDocument,
+    updateGoalsContent,
   ]);
 
   return (
-    <BlockNoteView
-      editor={editor}
-      theme="dark"
-      slashMenu={false}
-      onChange={() => setSerializedContent(JSON.stringify(editor.document))}
-    >
-      <SuggestionMenuController
-        triggerCharacter="/"
-        getItems={slashMenuItems}
-        floatingUIOptions={onyxSlashMenuFloatingOptions}
-        suggestionMenuComponent={ScrollableSuggestionMenu}
-      />
-    </BlockNoteView>
+    <div className="bn-onyx-editor w-full min-h-0">
+      <BlockNoteView
+        editor={editor}
+        theme="dark"
+        slashMenu={false}
+        onChange={() => {
+          const next = JSON.stringify(editor.document);
+          setSerializedContent(next);
+          if (next !== baselineRef.current) {
+            resetAutosaveUiForEdit();
+            setAutosaveVisible(true);
+            markSaving();
+          }
+        }}
+      >
+        <SuggestionMenuController
+          triggerCharacter="/"
+          getItems={slashMenuItems}
+          floatingUIOptions={onyxSlashMenuFloatingOptions}
+          suggestionMenuComponent={ScrollableSuggestionMenu}
+        />
+      </BlockNoteView>
+    </div>
   );
 };

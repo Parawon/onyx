@@ -14,4 +14,10 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_parent", ["userId", "parentDocument"]),
+
+  /** Per-user BlockNote payload for the Goals workspace page. */
+  goalsEditor: defineTable({
+    userId: v.string(),
+    content: v.string(),
+  }).index("by_user", ["userId"]),
 });

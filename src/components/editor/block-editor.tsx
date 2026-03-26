@@ -8,10 +8,8 @@ import { useRouter } from "next/navigation";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
-import {
-  EditorSaveStateProvider,
-  useEditorSaveState,
-} from "./editor-save-state-provider";
+import { EditorSaveStatusIndicator } from "./editor-save-status-indicator";
+import { EditorSaveStateProvider } from "./editor-save-state-provider";
 import { Button } from "@/components/ui/button";
 
 const BlockNoteCanvas = dynamic(
@@ -23,34 +21,6 @@ type BlockEditorProps = {
   documentId: string;
 };
 
-const SaveStatusIndicator = () => {
-  const { lastSavedAt, status } = useEditorSaveState();
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  if (status === "saving") {
-    return <span className="text-amber-400">Saving...</span>;
-  }
-
-  if (status === "error") {
-    return <span className="text-red-400">Save failed</span>;
-  }
-
-  if (lastSavedAt) {
-    const elapsedSeconds = Math.max(0, Math.floor((now - lastSavedAt) / 1000));
-    if (elapsedSeconds < 5) {
-      return <span>Saved just now</span>;
-    }
-    return <span>Saved {elapsedSeconds}s ago</span>;
-  }
-
-  return <span>Not saved yet</span>;
-};
-
 type EditorHeaderProps = {
   documentId: Id<"documents">;
   title: string;
@@ -60,7 +30,6 @@ const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
   const router = useRouter();
   const updateDocument = useMutation(api.documents.update);
   const removeDocument = useMutation(api.documents.remove);
-  const { markError, markSaved, markSaving } = useEditorSaveState();
   const [titleDraft, setTitleDraft] = useState(title);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -77,16 +46,14 @@ const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
       }
       return;
     }
-    markSaving();
     try {
       await updateDocument({
         id: documentId,
         title: normalizedTitle,
       });
-      markSaved();
       setTitleDraft(normalizedTitle);
     } catch {
-      markError();
+      // Title save failed; body autosave indicator is separate.
     }
   };
 
@@ -117,11 +84,11 @@ const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
           }
         }}
         placeholder="Untitled"
-        className="w-full max-w-xl rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-600 focus:bg-zinc-900/50"
+        className="w-full max-w-xl rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-700 focus:bg-transparent"
       />
       <div className="flex items-center gap-2">
         <div className="text-xs text-zinc-400">
-          <SaveStatusIndicator />
+          <EditorSaveStatusIndicator />
         </div>
         <Button
           type="button"
@@ -145,19 +112,32 @@ export const BlockEditor = ({ documentId }: BlockEditorProps) => {
   });
 
   if (document === undefined) {
-    return <div className="p-6 text-sm text-zinc-400">Loading editor...</div>;
+    return (
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-background p-6 text-sm text-zinc-400">
+        Loading editor...
+      </div>
+    );
   }
 
   if (document === null) {
-    return <div className="p-6 text-sm text-red-400">Document not found.</div>;
+    return (
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-background p-6 text-sm text-red-400">
+        Document not found.
+      </div>
+    );
   }
 
   return (
     <EditorSaveStateProvider>
-      <div className="h-full min-h-0 p-6">
+      <div className="flex min-h-0 flex-1 flex-col bg-background px-6 pb-6 pt-4">
         <EditorHeader documentId={document._id} title={document.title} />
-        <div className="min-h-[60vh] rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-          <BlockNoteCanvas documentId={document._id} initialContent={document.content} />
+        <div className="relative min-h-0 flex-1">
+          <BlockNoteCanvas
+            key={document._id}
+            kind="document"
+            documentId={document._id}
+            initialContent={document.content}
+          />
         </div>
       </div>
     </EditorSaveStateProvider>

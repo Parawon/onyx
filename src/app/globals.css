@@ -33,6 +33,37 @@ body {
   font-family: var(--font-sans);
 }
 
+/*
+ * BlockNote editor shell: match app background only (no gray canvas).
+ * Scoped via .bn-onyx-editor wrapper from BlockNoteCanvas.
+ */
+.bn-onyx-editor {
+  --bn-colors-editor-background: var(--background);
+  --bn-colors-editor-text: var(--foreground);
+  display: block;
+  width: 100%;
+}
+
+/* Override BlockNote dark theme tokens (otherwise #1f1f1f wins on .bn-container). */
+.bn-onyx-editor .bn-container,
+.bn-onyx-editor .bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: var(--background);
+  --bn-colors-editor-text: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  min-height: min-content;
+  overflow: visible;
+  background-color: var(--background);
+}
+
+/* Scroll lives on <main> only; editor grows with content (no nested scrollbar). */
+.bn-onyx-editor .bn-editor {
+  border-radius: 0;
+  min-height: min-content;
+  overflow: visible;
+  background-color: var(--background);
+}
+
 .editorial-shadow {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
 }
