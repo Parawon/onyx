@@ -1,0 +1,28 @@
+# Onyx Project Rules (Notion Clone)
+
+## Tech Stack
+- Framework: Next.js 15 (App Router)
+- Language: TypeScript (Strict)
+- Database/Backend: Convex (Reactive)
+- Auth: Clerk (with Convex integration)
+- Editor: BlockNote (Client-side only)
+- UI: Tailwind CSS, Shadcn UI, Lucide React
+
+## Coding Standards
+- Use Functional Components and Arrow Functions.
+- Use 'use client' and 'use server' directives strictly.
+- Prefer Server Components for data fetching (via Convex `fetchQuery`) where possible.
+- Use Server Actions for mutations that require redirects or complex logic.
+- Never use 'any'. Use 'unknown' or define specific Interfaces.
+- Use the `cn()` utility for all conditional Tailwind classes.
+
+## Specific Tooling Rules
+- CONVEX: Always use `useQuery` and `useMutation` from `_generated/api`. Use `v` for schema validation.
+- CLERK: Use `auth()` for server-side and `useUser()` for client-side identity.
+- BLOCKNOTE: Always load via `next/dynamic` with `{ ssr: false }`. Never initialize in a Server Component.
+- NEXT.JS 15: Use the new `async` request APIs (e.g., `await params` in routes). Disable `reactStrictMode` in `next.config.ts` if BlockNote conflicts.
+
+## Preferences
+- Early returns to avoid deep nesting.
+- Detailed, self-documenting variable names (e.g., `isSidebarCollapsed` instead of `collapsed`).
+- No 'axios'. Use the native 'fetch' API or Convex functions.
