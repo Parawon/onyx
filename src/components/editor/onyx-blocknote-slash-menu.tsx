@@ -1,0 +1,30 @@
+"use client";
+
+import type { BlockNoteEditor } from "@blocknote/core";
+import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
+import {
+  getDefaultReactSlashMenuItems,
+  type DefaultReactSuggestionItem,
+} from "@blocknote/react";
+import { BarChart2 } from "lucide-react";
+
+/** Slash menu items for the Onyx schema (default BlockNote items + Dual progress). */
+export function createOnyxSlashMenuGetItems(editor: BlockNoteEditor<any, any, any>) {
+  return async (query: string) => {
+    const defaults = getDefaultReactSlashMenuItems(editor);
+    const dualProgressItem: DefaultReactSuggestionItem = {
+      title: "Dual progress",
+      subtext: "Stacked metrics (p1 vs p2)",
+      group: "Onyx",
+      aliases: ["progress", "dual", "metrics", "bar"],
+      onItemClick: () => {
+        insertOrUpdateBlockForSlashMenu(editor, {
+          type: "dualProgress",
+          props: { p1: 50, p2: 50 },
+        });
+      },
+      icon: <BarChart2 className="size-[18px]" aria-hidden />,
+    };
+    return filterSuggestionItems([dualProgressItem, ...defaults], query);
+  };
+}

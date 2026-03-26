@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView } from "@blocknote/mantine";
 import type { PartialBlock } from "@blocknote/core";
+import { BlockNoteView } from "@blocknote/mantine";
+import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
+import { onyxBlockNoteSchema } from "./blocknote-schema";
 import { useEditorSaveState } from "./editor-save-state-provider";
+import { createOnyxSlashMenuGetItems } from "./onyx-blocknote-slash-menu";
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -40,8 +42,11 @@ export const BlockNoteCanvas = ({
   const [serializedContent, setSerializedContent] = useState(initialContent);
 
   const editor = useCreateBlockNote({
+    schema: onyxBlockNoteSchema,
     initialContent: initialBlocks,
   });
+
+  const slashMenuItems = useMemo(() => createOnyxSlashMenuGetItems(editor), [editor]);
 
   useEffect(() => {
     if (serializedContent === initialContent) {
@@ -77,7 +82,10 @@ export const BlockNoteCanvas = ({
     <BlockNoteView
       editor={editor}
       theme="dark"
+      slashMenu={false}
       onChange={() => setSerializedContent(JSON.stringify(editor.document))}
-    />
+    >
+      <SuggestionMenuController triggerCharacter="/" getItems={slashMenuItems} />
+    </BlockNoteView>
   );
 };
