@@ -10,6 +10,8 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AuthButton } from "@/components/auth/user-button";
+import { CreateDocumentButton } from "@/components/documents/create-document-button";
 import { cn } from "@/lib/utils";
 
 type DocumentDoc = Doc<"documents">;
@@ -127,6 +129,7 @@ export function DocumentSidebar() {
             Onyx
           </span>
         )}
+        <AuthButton />
         <Button
           type="button"
           variant="ghost"
@@ -142,15 +145,18 @@ export function DocumentSidebar() {
       {!narrow && (
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-2">
           <Collapsible defaultOpen>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                className="mb-1 h-8 w-full justify-start px-2 text-xs font-medium uppercase tracking-wide text-zinc-500 [&[data-state=open]>svg]:rotate-90"
-              >
-                <ChevronRight className="mr-1 size-3 transition-transform" />
-                Pages
-              </Button>
-            </CollapsibleTrigger>
+            <div className="mb-1 flex items-center justify-between">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-8 flex-1 justify-start px-2 text-xs font-medium uppercase tracking-wide text-zinc-500 [&[data-state=open]>svg]:rotate-90"
+                >
+                  <ChevronRight className="mr-1 size-3 transition-transform" />
+                  Pages
+                </Button>
+              </CollapsibleTrigger>
+              <CreateDocumentButton />
+            </div>
             <CollapsibleContent className="space-y-0.5 pb-2">
               {docs === undefined && (
                 <p className="px-2 py-3 text-xs text-zinc-500">Loading pages…</p>

@@ -1,6 +1,8 @@
 "use client";
 
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { useMemo, type ReactNode } from "react";
 
 function makeClient() {
@@ -15,5 +17,19 @@ function makeClient() {
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
   const client = useMemo(() => makeClient(), []);
-  return <ConvexProvider client={client}>{children}</ConvexProvider>;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  
+  if (!publishableKey) {
+    // Fallback to basic Convex provider if Clerk is not configured
+    // This allows the app to work without authentication for development
+    return <ConvexProvider client={client}>{children}</ConvexProvider>;
+  }
+
+  return (
+    <ClerkProvider publishableKey={publishableKey}>
+      <ConvexProviderWithClerk client={client} useAuth={useAuth}>
+        {children}
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
+  );
 }
