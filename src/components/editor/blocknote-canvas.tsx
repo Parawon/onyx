@@ -17,7 +17,8 @@ import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
-export type GoalEditorScope = "main" | "tech" | "marketing" | "partnership";
+/** Goals main page uses `"main"`; sub-pages use the URL slug string. */
+export type GoalEditorScope = string;
 
 export type BlockNoteCanvasProps = {
   initialContent: string;

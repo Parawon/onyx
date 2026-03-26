@@ -44,6 +44,11 @@ export function DualProgressBlockView({
     if (!el || !open) return;
 
     const rect = el.getBoundingClientRect();
+    // New blocks from the slash menu often measure 0×0 on the first frame; skip until laid out.
+    if (rect.width < 1 && rect.height < 1) {
+      return;
+    }
+
     const gap = 8;
     const margin = 8;
     const approxPopoverWidth = Math.min(22 * 16, window.innerWidth - 2 * margin);
@@ -93,7 +98,38 @@ export function DualProgressBlockView({
       setPopoverCoords(null);
       return;
     }
-    updatePopoverPosition();
+
+    let alive = true;
+    const tick = () => {
+      if (!alive) return;
+      updatePopoverPosition();
+    };
+
+    tick();
+    const raf1 = requestAnimationFrame(tick);
+    let innerRaf = 0;
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(tick);
+    });
+
+    const el = anchorRef.current;
+    const ro =
+      el != null
+        ? new ResizeObserver(() => {
+            if (alive) tick();
+          })
+        : null;
+    if (el != null && ro != null) {
+      ro.observe(el);
+    }
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
+      ro?.disconnect();
+    };
   }, [open, updatePopoverPosition, p1, p2]);
 
   useEffect(() => {

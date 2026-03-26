@@ -12,9 +12,7 @@ const BlockNoteCanvas = dynamic(
   { ssr: false },
 );
 
-export type GoalsEditorScope = "main" | "tech" | "marketing" | "partnership";
-
-export function GoalsEditorSection(props: { scope?: GoalsEditorScope }) {
+export function GoalsEditorSection(props: { scope?: string }) {
   const scope = props.scope ?? "main";
   const data = useQuery(api.goals.get, { scope });
 
@@ -36,11 +34,12 @@ export function GoalsEditorSection(props: { scope?: GoalsEditorScope }) {
 
   return (
     <EditorSaveStateProvider>
-      <div className="flex flex-col gap-2 bg-background">
-        <div className="flex shrink-0 justify-end px-12 pt-6 text-xs text-zinc-400">
+      <div className="flex flex-col bg-background px-12 pb-6 pt-6">
+        {/* Exact h-5 rail: indicator always renders same line box (invisible placeholder when idle) */}
+        <div className="flex h-5 shrink-0 items-center justify-end">
           <EditorSaveStatusIndicator />
         </div>
-        <div className="px-12 pb-6">
+        <div className="mt-3 min-h-0 min-w-0">
           <div className="min-h-full w-full pb-40">
             <BlockNoteCanvas
               key={`${data._id ?? "goals"}-${scope}`}

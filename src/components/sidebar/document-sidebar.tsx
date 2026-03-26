@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { GoalsNavSubmenu } from "@/components/goals/goals-sidebar-submenu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -50,11 +51,6 @@ const NAV_ITEMS: NavEntry[] = [
     label: "Goals",
     Icon: Target,
     isActive: (pathname) => pathname === "/goals" || pathname.startsWith("/goals/"),
-    children: [
-      { href: "/goals/tech", label: "Tech", isActive: (pathname) => pathname === "/goals/tech" },
-      { href: "/goals/marketing", label: "Marketing", isActive: (pathname) => pathname === "/goals/marketing" },
-      { href: "/goals/partnership", label: "Partnership", isActive: (pathname) => pathname === "/goals/partnership" },
-    ],
   },
   {
     href: "/notes",
@@ -378,7 +374,7 @@ export function DocumentSidebar() {
                 );
               }
 
-              if (href === "/goals" && children != null && children.length > 0) {
+              if (href === "/goals" && !narrow) {
                 return (
                   <ExpandableNavItem
                     key={label}
@@ -397,16 +393,7 @@ export function DocumentSidebar() {
                       setGoalsOpen((v) => !v);
                     }}
                   >
-                    <div className="space-y-1 pr-3">
-                      {children.map((child) => (
-                        <SubNavItem
-                          key={child.href}
-                          href={child.href}
-                          label={child.label}
-                          isActive={child.isActive(pathname)}
-                        />
-                      ))}
-                    </div>
+                    <GoalsNavSubmenu />
                   </ExpandableNavItem>
                 );
               }
