@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BlockNoteViewRaw, useCreateBlockNote } from "@blocknote/react";
+import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteView } from "@blocknote/mantine";
 import type { PartialBlock } from "@blocknote/core";
 import { useMutation } from "convex/react";
 
@@ -9,7 +10,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 
 import "@blocknote/core/fonts/inter.css";
-import "@blocknote/react/style.css";
+import "@blocknote/mantine/style.css";
 
 type BlockNoteCanvasProps = {
   documentId: Id<"documents">;
@@ -54,6 +55,9 @@ export const BlockNoteCanvas = ({
   }, [documentId, initialContent, serializedContent, updateDocument]);
 
   return (
-    <BlockNoteViewRaw
+    <BlockNoteView
       editor={editor}
-      onChange={() => setSerializedContent(J
+      onChange={() => setSerializedContent(JSON.stringify(editor.document))}
+    />
+  );
+};
