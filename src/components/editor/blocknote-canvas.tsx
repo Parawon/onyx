@@ -8,6 +8,7 @@ import { useMutation } from "convex/react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
+import { useEditorSaveState } from "./editor-save-state-provider";
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -34,6 +35,7 @@ export const BlockNoteCanvas = ({
   initialContent,
 }: BlockNoteCanvasProps) => {
   const updateDocument = useMutation(api.documents.update);
+  const { markError, markSaved, markSaving } = useEditorSaveState();
   const initialBlocks = useMemo(() => parseBlocks(initialContent), [initialContent]);
   const [serializedContent, setSerializedContent] = useState(initialContent);
 
@@ -42,17 +44,34 @@ export const BlockNoteCanvas = ({
   });
 
   useEffect(() => {
+    if (serializedContent === initialContent) {
+      return;
+    }
+
+    markSaving();
     const timeoutId = window.setTimeout(() => {
-      if (serializedContent !== initialContent) {
-        void updateDocument({
-          id: documentId,
-          content: serializedContent,
+      void updateDocument({
+        id: documentId,
+        content: serializedContent,
+      })
+        .then(() => {
+          markSaved();
+        })
+        .catch(() => {
+          markError();
         });
-      }
     }, 500);
 
     return () => window.clearTimeout(timeoutId);
-  }, [documentId, initialContent, serializedContent, updateDocument]);
+  }, [
+    documentId,
+    initialContent,
+    markError,
+    markSaved,
+    markSaving,
+    serializedContent,
+    updateDocument,
+  ]);
 
   return (
     <BlockNoteView
