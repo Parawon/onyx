@@ -17,11 +17,13 @@ import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
+export type GoalEditorScope = "main" | "tech" | "marketing" | "partnership";
+
 export type BlockNoteCanvasProps = {
   initialContent: string;
 } & (
   | { kind: "document"; documentId: Id<"documents"> }
-  | { kind: "goals" }
+  | { kind: "goals"; goalsScope: GoalEditorScope }
 );
 
 const parseBlocks = (content: string): PartialBlock[] | undefined => {
@@ -39,6 +41,7 @@ const parseBlocks = (content: string): PartialBlock[] | undefined => {
 export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const { initialContent, kind } = props;
   const documentId = kind === "document" ? props.documentId : undefined;
+  const goalsScope = kind === "goals" ? props.goalsScope : undefined;
   const updateDocument = useMutation(api.documents.update);
   const updateGoalsContent = useMutation(api.goals.updateContent);
   const {
@@ -89,6 +92,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
     return () => window.clearTimeout(timeoutId);
   }, [
     documentId,
+    goalsScope,
     kind,
     markError,
     markSaved,

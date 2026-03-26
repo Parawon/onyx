@@ -132,12 +132,14 @@ export const BlockEditor = ({ documentId }: BlockEditorProps) => {
       <div className="flex min-h-0 flex-1 flex-col bg-background px-6 pb-6 pt-4">
         <EditorHeader documentId={document._id} title={document.title} />
         <div className="relative min-h-0 flex-1">
-          <BlockNoteCanvas
-            key={document._id}
-            kind="document"
-            documentId={document._id}
-            initialContent={document.content}
-          />
+          <div className="min-h-full w-full pb-40">
+            <BlockNoteCanvas
+              key={document._id}
+              kind="document"
+              documentId={document._id}
+              initialContent={document.content}
+            />
+          </div>
         </div>
       </div>
     </EditorSaveStateProvider>

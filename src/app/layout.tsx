@@ -34,9 +34,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} dark h-full bg-black antialiased text-white`}
+      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} dark h-screen overflow-hidden bg-black antialiased text-white`}
     >
-      <body className="selection:bg-primary-fixed selection:text-on-primary-fixed flex min-h-full flex-col bg-black text-white">
+      <body className="selection:bg-primary-fixed selection:text-on-primary-fixed h-screen overflow-hidden bg-black text-white">
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>

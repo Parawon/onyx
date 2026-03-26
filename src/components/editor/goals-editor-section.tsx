@@ -12,8 +12,11 @@ const BlockNoteCanvas = dynamic(
   { ssr: false },
 );
 
-export function GoalsEditorSection() {
-  const data = useQuery(api.goals.get);
+export type GoalsEditorScope = "main" | "tech" | "marketing" | "partnership";
+
+export function GoalsEditorSection(props: { scope?: GoalsEditorScope }) {
+  const scope = props.scope ?? "main";
+  const data = useQuery(api.goals.get, { scope });
 
   if (data === undefined) {
     return (
@@ -38,7 +41,14 @@ export function GoalsEditorSection() {
           <EditorSaveStatusIndicator />
         </div>
         <div className="px-12 pb-6">
-          <BlockNoteCanvas key={data._id ?? "goals"} kind="goals" initialContent={data.content} />
+          <div className="min-h-full w-full pb-40">
+            <BlockNoteCanvas
+              key={`${data._id ?? "goals"}-${scope}`}
+              kind="goals"
+              goalsScope={scope}
+              initialContent={data.content}
+            />
+          </div>
         </div>
       </div>
     </EditorSaveStateProvider>

@@ -15,9 +15,17 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_parent", ["userId", "parentDocument"]),
 
-  /** Per-user BlockNote payload for the Goals workspace page. */
+  /** Per-user BlockNote payload for Goals (main + sub-pages). Legacy rows omit `scope` and count as "main". */
   goalsEditor: defineTable({
     userId: v.string(),
     content: v.string(),
+    scope: v.optional(
+      v.union(
+        v.literal("main"),
+        v.literal("tech"),
+        v.literal("marketing"),
+        v.literal("partnership"),
+      ),
+    ),
   }).index("by_user", ["userId"]),
 });

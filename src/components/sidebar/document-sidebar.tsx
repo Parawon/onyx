@@ -51,9 +51,9 @@ const NAV_ITEMS: NavEntry[] = [
     Icon: Target,
     isActive: (pathname) => pathname === "/goals" || pathname.startsWith("/goals/"),
     children: [
-      { href: "/goals/alpha", label: "Alpha", isActive: (pathname) => pathname === "/goals/alpha" },
-      { href: "/goals/bravo", label: "Bravo", isActive: (pathname) => pathname === "/goals/bravo" },
-      { href: "/goals/charlie", label: "Charlie", isActive: (pathname) => pathname === "/goals/charlie" },
+      { href: "/goals/tech", label: "Tech", isActive: (pathname) => pathname === "/goals/tech" },
+      { href: "/goals/marketing", label: "Marketing", isActive: (pathname) => pathname === "/goals/marketing" },
+      { href: "/goals/partnership", label: "Partnership", isActive: (pathname) => pathname === "/goals/partnership" },
     ],
   },
   {
