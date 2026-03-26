@@ -3,6 +3,7 @@
 import {
   Briefcase,
   Calendar,
+  ChevronDown,
   FileText,
   LayoutDashboard,
   PanelLeft,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ type NavEntry = {
   label: string;
   Icon: LucideIcon;
   isActive: (pathname: string) => boolean;
+  children?: Array<{ href: string; label: string; isActive: (pathname: string) => boolean }>;
 };
 
 const NAV_ITEMS: NavEntry[] = [
@@ -47,7 +49,12 @@ const NAV_ITEMS: NavEntry[] = [
     href: "/goals",
     label: "Goals",
     Icon: Target,
-    isActive: (pathname) => pathname === "/goals",
+    isActive: (pathname) => pathname === "/goals" || pathname.startsWith("/goals/"),
+    children: [
+      { href: "/goals/alpha", label: "Alpha", isActive: (pathname) => pathname === "/goals/alpha" },
+      { href: "/goals/bravo", label: "Bravo", isActive: (pathname) => pathname === "/goals/bravo" },
+      { href: "/goals/charlie", label: "Charlie", isActive: (pathname) => pathname === "/goals/charlie" },
+    ],
   },
   {
     href: "/notes",
@@ -62,7 +69,24 @@ const NAV_ITEMS: NavEntry[] = [
     href: "/calendar",
     label: "Calendar",
     Icon: Calendar,
-    isActive: (pathname) => pathname === "/calendar",
+    isActive: (pathname) => pathname === "/calendar" || pathname.startsWith("/calendar/"),
+    children: [
+      {
+        href: "/calendar/alpha",
+        label: "Alpha",
+        isActive: (pathname) => pathname === "/calendar/alpha",
+      },
+      {
+        href: "/calendar/bravo",
+        label: "Bravo",
+        isActive: (pathname) => pathname === "/calendar/bravo",
+      },
+      {
+        href: "/calendar/charlie",
+        label: "Charlie",
+        isActive: (pathname) => pathname === "/calendar/charlie",
+      },
+    ],
   },
   {
     href: "/management",
@@ -119,6 +143,93 @@ function NavItem({
   );
 }
 
+function ExpandableNavItem({
+  href,
+  label,
+  Icon,
+  isActive,
+  expanded,
+  onOpen,
+  onToggleFromChevron,
+  children,
+}: {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+  isActive: boolean;
+  expanded: boolean;
+  onOpen: () => void;
+  onToggleFromChevron: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="w-full">
+      <div
+        className={cn(
+          "group flex min-h-10 w-full cursor-pointer items-center transition-all active:scale-[0.98]",
+          isActive
+            ? "border-r-2 border-sky-500 bg-zinc-900/80 font-semibold text-white"
+            : "text-zinc-400 hover:bg-zinc-900/50 hover:text-white",
+        )}
+      >
+        <Link
+          href={href}
+          onClick={() => onOpen()}
+          className="min-w-0 flex-1 truncate py-2.5 pl-6 pr-2 text-left"
+          aria-label={`${label} page`}
+        >
+          {label}
+        </Link>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleFromChevron();
+          }}
+          className="mr-2 inline-flex size-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-900/60 hover:text-white"
+          aria-label={expanded ? "Collapse Goals menu" : "Expand Goals menu"}
+          aria-expanded={expanded}
+        >
+          <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+        </button>
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center self-stretch border-l border-transparent py-2",
+            ICON_RAIL,
+            isActive && "border-zinc-800/80 bg-black/20",
+          )}
+          aria-hidden
+        >
+          <Icon
+            className={cn(
+              NAV_ICON_CLASS,
+              isActive ? "text-sky-400" : "text-zinc-500 group-hover:text-zinc-300",
+            )}
+          />
+        </span>
+      </div>
+      <div className={cn("mt-1 w-full", !expanded && "hidden")}>{children}</div>
+    </div>
+  );
+}
+
+function SubNavItem({ href, label, isActive }: { href: string; label: string; isActive: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex min-h-9 w-full items-center rounded-md px-3 py-2 pl-10 text-sm transition-colors",
+        isActive
+          ? "bg-zinc-900/70 text-white"
+          : "text-zinc-500 hover:bg-zinc-900/40 hover:text-white",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </Link>
+  );
+}
+
 function CollapsedNavIcon({
   href,
   label,
@@ -153,6 +264,8 @@ function CollapsedNavIcon({
 export function DocumentSidebar() {
   const pathname = usePathname();
   const [narrow, setNarrow] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const navWithActive = useMemo(
     () =>
@@ -162,6 +275,24 @@ export function DocumentSidebar() {
       })),
     [pathname],
   );
+
+  const isInGoals = pathname === "/goals" || pathname.startsWith("/goals/");
+  const isGoalsChildRoute = pathname.startsWith("/goals/");
+  const effectiveGoalsOpen = isGoalsChildRoute ? true : goalsOpen;
+
+  // Close Goals dropdown when navigating away from Goals entirely.
+  useEffect(() => {
+    if (!isInGoals) setGoalsOpen(false);
+  }, [isInGoals]);
+
+  const isInCalendar = pathname === "/calendar" || pathname.startsWith("/calendar/");
+  const isCalendarChildRoute = pathname.startsWith("/calendar/");
+  const effectiveCalendarOpen = isCalendarChildRoute ? true : calendarOpen;
+
+  // Close Calendar dropdown when navigating away from Calendar entirely.
+  useEffect(() => {
+    if (!isInCalendar) setCalendarOpen(false);
+  }, [isInCalendar]);
 
   return (
     <aside
@@ -238,19 +369,81 @@ export function DocumentSidebar() {
               narrow ? "items-center gap-2" : "gap-1",
             )}
           >
-            {navWithActive.map(({ href, label, Icon, active }) =>
-              narrow ? (
-                <CollapsedNavIcon
-                  key={label}
-                  href={href}
-                  label={label}
-                  Icon={Icon}
-                  isActive={active}
-                />
-              ) : (
-                <NavItem key={label} href={href} label={label} Icon={Icon} isActive={active} />
-              ),
-            )}
+            {navWithActive.map(({ href, label, Icon, active, children }) => {
+              if (narrow) {
+                return (
+                  <CollapsedNavIcon key={label} href={href} label={label} Icon={Icon} isActive={active} />
+                );
+              }
+
+              if (href === "/goals" && children != null && children.length > 0) {
+                return (
+                  <ExpandableNavItem
+                    key={label}
+                    href={href}
+                    label={label}
+                    Icon={Icon}
+                    isActive={active}
+                    expanded={effectiveGoalsOpen}
+                    onOpen={() => setGoalsOpen(true)}
+                    onToggleFromChevron={() => {
+                      // Allow closing only when on `/goals`. Never close on child pages.
+                      if (pathname.startsWith("/goals/")) {
+                        setGoalsOpen(true);
+                        return;
+                      }
+                      setGoalsOpen((v) => !v);
+                    }}
+                  >
+                    <div className="space-y-1 pr-3">
+                      {children.map((child) => (
+                        <SubNavItem
+                          key={child.href}
+                          href={child.href}
+                          label={child.label}
+                          isActive={child.isActive(pathname)}
+                        />
+                      ))}
+                    </div>
+                  </ExpandableNavItem>
+                );
+              }
+
+              if (href === "/calendar" && children != null && children.length > 0) {
+                return (
+                  <ExpandableNavItem
+                    key={label}
+                    href={href}
+                    label={label}
+                    Icon={Icon}
+                    isActive={active}
+                    expanded={effectiveCalendarOpen}
+                    onOpen={() => setCalendarOpen(true)}
+                    onToggleFromChevron={() => {
+                      // Allow closing only when on `/calendar`. Never close on child pages.
+                      if (pathname.startsWith("/calendar/")) {
+                        setCalendarOpen(true);
+                        return;
+                      }
+                      setCalendarOpen((v) => !v);
+                    }}
+                  >
+                    <div className="space-y-1 pr-3">
+                      {children.map((child) => (
+                        <SubNavItem
+                          key={child.href}
+                          href={child.href}
+                          label={child.label}
+                          isActive={child.isActive(pathname)}
+                        />
+                      ))}
+                    </div>
+                  </ExpandableNavItem>
+                );
+              }
+
+              return <NavItem key={label} href={href} label={label} Icon={Icon} isActive={active} />;
+            })}
           </div>
         </nav>
       </div>
