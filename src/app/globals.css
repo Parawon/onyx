@@ -24,34 +24,3 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-/* BlockNote editor styles */
-.bn-container {
-  border: none !important;
-}
-
-.bn-editor {
-  color: rgb(24 24 27) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bn-editor {
-    color: rgb(250 250 250) !important;
-  }
-}
-
-/* Ensure BlockNote works well with our color scheme */
-.bn-block-content {
-  color: rgb(24 24 27);
-}
-
-.bn-inline-content {
-  color: rgb(24 24 27);
-}
-
-@media (prefers-color-scheme: dark) {
-  .bn-block-content,
-  .bn-inline-content {
-    color: rgb(250 250 250);
-  }
-}
