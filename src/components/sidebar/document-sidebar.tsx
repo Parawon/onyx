@@ -180,19 +180,21 @@ function ExpandableNavItem({
         >
           {label}
         </Link>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleFromChevron();
-          }}
-          className="mr-2 inline-flex size-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-900/60 hover:text-white"
-          aria-label={expanded ? "Collapse Goals menu" : "Expand Goals menu"}
-          aria-expanded={expanded}
-        >
-          <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
-        </button>
+        {expanded && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFromChevron();
+            }}
+            className="mr-2 inline-flex size-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-900/60 hover:text-white"
+            aria-label="Collapse submenu"
+            aria-expanded={expanded}
+          >
+            <ChevronDown className="size-4 rotate-180" />
+          </button>
+        )}
         <span
           className={cn(
             "flex shrink-0 items-center justify-center self-stretch border-l border-transparent py-2",
