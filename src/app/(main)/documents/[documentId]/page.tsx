@@ -1,15 +1,57 @@
+"use client";
+
+import React from "react";
+import { useQuery } from "convex/react";
+import { BlockEditor } from "@/components/editor/block-editor";
+import { DocumentHeader } from "@/components/editor/document-header";
+import { DocumentNotFound } from "@/components/editor/document-not-found";
+import { EditorSkeleton } from "@/components/editor/editor-skeleton";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+
 type PageProps = { params: Promise<{ documentId: string }> };
 
-export default async function DocumentPage({ params }: PageProps) {
-  const { documentId } = await params;
+export default function DocumentPage({ params }: PageProps) {
+  const [documentId, setDocumentId] = React.useState<string | null>(null);
+  
+  // Unwrap params
+  React.useEffect(() => {
+    params.then(({ documentId }) => setDocumentId(documentId));
+  }, [params]);
+  
+  if (!documentId) {
+    return <EditorSkeleton />;
+  }
+  
+  // Type assertion for Convex ID
+  const docId = documentId as Id<"documents">;
+  
+  return <DocumentPageContent documentId={docId} />;
+}
+
+function DocumentPageContent({ documentId }: { documentId: Id<"documents"> }) {
+  const document = useQuery(api.documents.getById, { id: documentId });
+  
+  if (document === undefined) {
+    return (
+      <div className="flex min-h-full flex-col p-8">
+        <EditorSkeleton />
+      </div>
+    );
+  }
+  
+  if (document === null) {
+    return (
+      <div className="flex min-h-full flex-col p-8">
+        <DocumentNotFound />
+      </div>
+    );
+  }
+  
   return (
     <div className="flex min-h-full flex-col p-8">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Document</p>
-      <h1 className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-50">Editor</h1>
-      <p className="mt-2 max-w-lg text-sm text-zinc-600 dark:text-zinc-400">
-        BlockNote + debounced Convex updates will go here. Document id:{" "}
-        <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs dark:bg-zinc-800">{documentId}</code>
-      </p>
+      <DocumentHeader documentId={documentId} />
+      <BlockEditor documentId={documentId} />
     </div>
   );
 }
