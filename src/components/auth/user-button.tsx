@@ -9,11 +9,11 @@ export function AuthButton() {
 
     if (isSignedIn) {
       return (
-        <UserButton 
+        <UserButton
           appearance={{
             elements: {
-              avatarBox: "w-8 h-8"
-            }
+              avatarBox: "w-9 h-9",
+            },
           }}
         />
       );

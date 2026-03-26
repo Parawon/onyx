@@ -76,6 +76,7 @@ export const BlockNoteCanvas = ({
   return (
     <BlockNoteView
       editor={editor}
+      theme="dark"
       onChange={() => setSerializedContent(JSON.stringify(editor.document))}
     />
   );

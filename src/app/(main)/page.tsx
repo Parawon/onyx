@@ -1,13 +1,28 @@
+import { ArrowRight } from "lucide-react";
+
+import {
+  WorkspaceAnnouncementRow,
+  WorkspaceSectionPage,
+} from "@/components/workspace/workspace-section-page";
+
+const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Onyx";
+
 export default function HomePage() {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center p-8 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Welcome to Onyx
-      </h1>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-        Choose a page in the sidebar, or continue setup: connect Clerk and Convex, then the BlockNote
-        editor will land here with live sync.
-      </p>
-    </div>
+    <WorkspaceSectionPage
+      title={COMPANY_NAME}
+      tagline="Strategic overview"
+      description="Precision management and architectural oversight for the modern enterprise. Your operational velocity, visualized."
+      sectionHeading="Announcements"
+    >
+      <div className="max-w-3xl space-y-4">
+        <WorkspaceAnnouncementRow title="Quarterly Strategic Review — Oct 24, 2023" />
+        <WorkspaceAnnouncementRow title="New Security Protocols Implementation — Oct 20, 2023" />
+        <div className="group flex min-h-[4.5rem] items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-5 transition-colors hover:border-sky-500/40">
+          <span className="text-zinc-500">More updates soon</span>
+          <ArrowRight className="size-5 text-zinc-600 transition-colors group-hover:text-sky-400" />
+        </div>
+      </div>
+    </WorkspaceSectionPage>
   );
 }

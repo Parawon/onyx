@@ -33,11 +33,11 @@ const SaveStatusIndicator = () => {
   }, []);
 
   if (status === "saving") {
-    return <span className="text-amber-600 dark:text-amber-400">Saving...</span>;
+    return <span className="text-amber-400">Saving...</span>;
   }
 
   if (status === "error") {
-    return <span className="text-red-600 dark:text-red-400">Save failed</span>;
+    return <span className="text-red-400">Save failed</span>;
   }
 
   if (lastSavedAt) {
@@ -117,17 +117,17 @@ const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
           }
         }}
         placeholder="Untitled"
-        className="w-full max-w-xl rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-zinc-700 outline-none transition focus:border-zinc-300 focus:bg-white dark:text-zinc-200 dark:focus:border-zinc-700 dark:focus:bg-zinc-900"
+        className="w-full max-w-xl rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-600 focus:bg-zinc-900/50"
       />
       <div className="flex items-center gap-2">
-        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="text-xs text-zinc-400">
           <SaveStatusIndicator />
         </div>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          className="text-red-400 hover:text-red-300"
           disabled={isDeleting}
           onClick={() => void handleDelete()}
         >
@@ -145,18 +145,18 @@ export const BlockEditor = ({ documentId }: BlockEditorProps) => {
   });
 
   if (document === undefined) {
-    return <div className="p-6 text-sm text-zinc-500">Loading editor...</div>;
+    return <div className="p-6 text-sm text-zinc-400">Loading editor...</div>;
   }
 
   if (document === null) {
-    return <div className="p-6 text-sm text-red-500">Document not found.</div>;
+    return <div className="p-6 text-sm text-red-400">Document not found.</div>;
   }
 
   return (
     <EditorSaveStateProvider>
       <div className="h-full min-h-0 p-6">
         <EditorHeader documentId={document._id} title={document.title} />
-        <div className="min-h-[60vh] rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="min-h-[60vh] rounded-lg border border-zinc-800 bg-zinc-950 p-4">
           <BlockNoteCanvas documentId={document._id} initialContent={document.content} />
         </div>
       </div>
