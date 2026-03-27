@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type SyntheticEvent,
 } from "react";
@@ -25,6 +26,7 @@ import {
   parseTasksJSON,
   parseTaskTableColumnWidths,
   stringifyTasks,
+  taskGridTemplateColumns,
   TASK_STATUSES,
   TASK_URGENCIES,
   type TaskTrackingRow,
@@ -50,10 +52,13 @@ function stopPm(e: SyntheticEvent) {
   e.stopPropagation();
 }
 
-/** Parent capture must not swallow pointerdown for column resize — children never receive it if we stop here. */
+/** Parent capture must not swallow pointerdown for column resize or Radix dropdowns — children never receive it if we stop here. */
 function stopPmCaptureUnlessColumnResize(e: ReactPointerEvent<HTMLDivElement>) {
   const t = e.target;
-  if (t instanceof Element && t.closest("[data-task-column-resize]")) {
+  if (
+    t instanceof Element &&
+    (t.closest("[data-task-column-resize]") || t.closest("[data-task-table-dropdown]"))
+  ) {
     return;
   }
   e.stopPropagation();
@@ -61,21 +66,22 @@ function stopPmCaptureUnlessColumnResize(e: ReactPointerEvent<HTMLDivElement>) {
 
 function TaskColumnResizeHandle({
   boundaryIndex,
-  onPointerDownResize,
+  onResizeMouseDown,
 }: {
   boundaryIndex: number;
-  onPointerDownResize: (e: ReactPointerEvent<HTMLDivElement>, boundaryIndex: number) => void;
+  onResizeMouseDown: (e: ReactMouseEvent<HTMLDivElement>, boundaryIndex: number) => void;
 }) {
   return (
     <div
+      data-task-column-resize=""
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize between columns ${boundaryIndex + 1} and ${boundaryIndex + 2}`}
-      className="absolute end-0 top-0 z-10 h-full w-3 max-w-[50%] -translate-x-1/2 cursor-col-resize touch-none select-none hover:bg-sky-500/35"
-      onPointerDown={(e) => {
+      className="absolute end-0 top-0 z-20 h-full w-1 max-w-[40%] -translate-x-1/2 cursor-col-resize touch-none select-none opacity-0 transition-colors group-hover/header:opacity-100 hover:bg-sky-500/50 active:bg-sky-500"
+      onMouseDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onPointerDownResize(e, boundaryIndex);
+        onResizeMouseDown(e, boundaryIndex);
       }}
     />
   );
@@ -227,16 +233,147 @@ function statusBadgeClass(status: TaskStatus): string {
   }
 }
 
-function parseStatus(value: string): TaskStatus {
-  return (TASK_STATUSES as readonly string[]).includes(value)
-    ? (value as TaskStatus)
-    : "backlog";
+function urgencyDotClass(u: TaskUrgency): string {
+  switch (u) {
+    case "extreme":
+      return "bg-red-500";
+    case "high":
+      return "bg-orange-400";
+    case "mid":
+      return "bg-amber-400";
+    case "low":
+      return "bg-emerald-500/80";
+    case "very low":
+      return "bg-zinc-500";
+    default: {
+      const _e: never = u;
+      return _e;
+    }
+  }
 }
 
-function parseUrgency(value: string): TaskUrgency {
-  return (TASK_URGENCIES as readonly string[]).includes(value)
-    ? (value as TaskUrgency)
-    : "mid";
+/** Radix Popover (same as due date / filter) — DropdownMenu conflicted with BlockNote’s pointer handling. */
+function TaskStatusPopoverCell({
+  status,
+  onSelect,
+}: {
+  status: TaskStatus;
+  onSelect: (s: TaskStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-full min-h-9 w-full items-center px-3 py-1.5 outline-none transition-colors hover:bg-zinc-800/50"
+          aria-label="Status"
+          aria-expanded={open}
+          onMouseDown={stopPm}
+          onPointerDownCapture={stopPm}
+        >
+          <span
+            className={cn(
+              "whitespace-nowrap rounded-[4px] px-2 py-0.5 text-[11px] font-medium",
+              statusBadgeClass(status),
+            )}
+          >
+            {status.replace(/-/g, " ")}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-48 border-zinc-800 bg-zinc-900 p-0 shadow-2xl"
+        onMouseDown={stopPm}
+        onPointerDownCapture={stopPm}
+      >
+        <p className="px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+          Select status
+        </p>
+        <div className="flex flex-col gap-0.5 p-1">
+          {TASK_STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left outline-none transition-colors hover:bg-zinc-800"
+              onMouseDown={stopPm}
+              onPointerDownCapture={stopPm}
+              onClick={() => {
+                onSelect(s);
+                setOpen(false);
+              }}
+            >
+              <span
+                className={cn(
+                  "rounded-[3px] px-2 py-0.5 text-[11px] font-medium",
+                  statusBadgeClass(s),
+                )}
+              >
+                {s.replace(/-/g, " ")}
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function TaskUrgencyPopoverCell({
+  urgency,
+  onSelect,
+}: {
+  urgency: TaskUrgency;
+  onSelect: (u: TaskUrgency) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="h-full min-h-9 w-full px-3 py-1.5 text-left text-[13px] capitalize text-zinc-400 outline-none transition-colors hover:text-zinc-200"
+          aria-label="Urgency"
+          aria-expanded={open}
+          onMouseDown={stopPm}
+          onPointerDownCapture={stopPm}
+        >
+          {urgency}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-[7.75rem] min-w-0 border-zinc-800 bg-zinc-950 p-0 shadow-2xl"
+        onMouseDown={stopPm}
+        onPointerDownCapture={stopPm}
+      >
+        <div className="flex flex-col gap-0.5 p-1">
+          {TASK_URGENCIES.map((u) => (
+            <button
+              key={u}
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[12px] text-zinc-300 outline-none hover:bg-zinc-900"
+              onMouseDown={stopPm}
+              onPointerDownCapture={stopPm}
+              onClick={() => {
+                onSelect(u);
+                setOpen(false);
+              }}
+            >
+              <div
+                className={cn("size-1.5 shrink-0 rounded-full", urgencyDotClass(u))}
+                aria-hidden
+              />
+              <span className="capitalize">{u}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 type AssigneeProfile = {
@@ -401,6 +538,7 @@ function AssigneeCell({
   return (
     <div
       ref={wrapRef}
+      data-task-table-dropdown=""
       className="relative flex min-h-7 min-w-0 flex-1 flex-wrap items-center gap-1"
       onMouseDown={stopPm}
       onPointerDownCapture={stopPm}
@@ -457,28 +595,77 @@ function AssigneeCell({
         ) : null}
       </div>
 
-      <select
-        aria-label="Add assignee"
-        className="min-w-0 max-w-full shrink cursor-pointer truncate rounded border border-transparent bg-transparent py-0.5 text-[11px] text-zinc-500 outline-none hover:border-zinc-700 hover:text-zinc-300"
-        value=""
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v) {
-            add(v);
-          }
-          e.target.value = "";
-        }}
-      >
-        <option value="" className="bg-zinc-900">
-          Add…
-        </option>
-        {addableOptions.map(([id, p]) => (
-          <option key={id} value={id} className="bg-zinc-900">
-            {p.label}
-          </option>
-        ))}
-      </select>
+      {addableOptions.length === 0 ? (
+        <span className="shrink-0 text-[11px] text-zinc-600" aria-hidden>
+          —
+        </span>
+      ) : (
+        <AssigneeAddPopover addableOptions={addableOptions} onPick={add} />
+      )}
     </div>
+  );
+}
+
+function AssigneeAddPopover({
+  addableOptions,
+  onPick,
+}: {
+  addableOptions: [string, AssigneeProfile][];
+  onPick: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="min-w-0 max-w-full shrink truncate rounded border border-transparent bg-transparent py-0.5 text-left text-[11px] text-zinc-500 outline-none hover:border-zinc-700 hover:text-zinc-300"
+          aria-label="Add assignee"
+          aria-expanded={open}
+          onMouseDown={stopPm}
+          onPointerDownCapture={stopPm}
+        >
+          Add…
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-[min(15rem,calc(100vw-2rem))] max-h-60 overflow-y-auto border-zinc-800 bg-zinc-950 p-0 shadow-2xl"
+        onMouseDown={stopPm}
+        onPointerDownCapture={stopPm}
+      >
+        <div className="flex flex-col gap-0.5 p-1">
+          {addableOptions.map(([id, p]) => (
+            <button
+              key={id}
+              type="button"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left outline-none hover:bg-zinc-900"
+              onMouseDown={stopPm}
+              onPointerDownCapture={stopPm}
+              onClick={() => {
+                onPick(id);
+                setOpen(false);
+              }}
+            >
+              {p.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- Clerk CDN URLs
+                <img
+                  src={p.imageUrl}
+                  alt=""
+                  className="size-6 shrink-0 rounded-full object-cover ring-1 ring-zinc-800"
+                />
+              ) : (
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-300 ring-1 ring-zinc-800">
+                  {initials(p.label, id)}
+                </div>
+              )}
+              <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">{p.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -532,47 +719,26 @@ export function TaskTrackingTableBlockView({
     [blockId, editor],
   );
 
-  const onColumnResizePointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>, boundaryIndex: number) => {
-      const startX = e.clientX;
+  const onColumnResizeMouseDown = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>, boundaryIndex: number) => {
+      const startX = e.pageX;
       const startWidths = [...colWidthsRef.current];
-      const captureEl = e.currentTarget as HTMLDivElement;
-      const pointerId = e.pointerId;
-      try {
-        captureEl.setPointerCapture(pointerId);
-      } catch {
-        /* already captured or unsupported */
-      }
 
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
 
-      const onMove = (ev: PointerEvent) => {
-        const dx = ev.clientX - startX;
+      const onMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.pageX - startX;
         setColWidths(applyBoundaryResize(startWidths, boundaryIndex, dx));
       };
 
-      let ended = false;
-      const done = (ev: PointerEvent) => {
-        if (ended) {
-          return;
-        }
-        ended = true;
+      const onUp = (upEvent: MouseEvent) => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", done);
-        window.removeEventListener("pointercancel", done);
 
-        try {
-          if (captureEl.releasePointerCapture) {
-            captureEl.releasePointerCapture(pointerId);
-          }
-        } catch {
-          /* not capturing */
-        }
-
-        const dx = ev.clientX - startX;
+        const dx = upEvent.pageX - startX;
         const final = applyBoundaryResize(startWidths, boundaryIndex, dx);
         setColWidths(final);
         colWidthsRef.current = final;
@@ -587,9 +753,8 @@ export function TaskTrackingTableBlockView({
         });
       };
 
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", done);
-      window.addEventListener("pointercancel", done);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     },
     [blockId, editor, tasks, titleDraft],
   );
@@ -695,13 +860,13 @@ export function TaskTrackingTableBlockView({
   }, []);
 
   const cellBase =
-    "flex items-center border-b border-r border-zinc-800 px-3 py-1.5 transition-colors focus-within:bg-zinc-900/50";
+    "flex min-w-0 items-center border-b border-r border-zinc-800 px-3 py-1.5 transition-colors focus-within:bg-zinc-900/50";
   const ghostInput =
     "w-full border-none bg-transparent text-[14px] text-zinc-200 outline-none placeholder:text-zinc-700 focus:placeholder:text-zinc-600";
 
   return (
     <div
-      className="group/table my-8 w-full"
+      className="group/table my-8 w-full min-w-0 max-w-full"
       onMouseDown={stopPm}
       onPointerDownCapture={stopPmCaptureUnlessColumnResize}
     >
@@ -813,26 +978,25 @@ export function TaskTrackingTableBlockView({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-sm border-l border-t border-zinc-800">
+      <div className="min-w-0 max-w-full overflow-x-auto rounded-sm border-l border-t border-zinc-800">
         <div
           role="table"
-          className="grid w-full"
+          className="grid w-full min-w-0 max-w-full"
           style={{
-            gridTemplateColumns: colWidths.map((w) => `${w}px`).join(" "),
-            minWidth: colWidths.reduce((a, b) => a + b, 0),
+            gridTemplateColumns: taskGridTemplateColumns(colWidths),
           }}
         >
           <div className="contents bg-zinc-900/30 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
             {HEADER_LABELS.map((label, colIdx) => (
               <div
                 key={colIdx}
-                className="relative border-b border-r border-zinc-800 px-2 py-1"
+                className="group/header relative border-b border-r border-zinc-800 px-2 py-1"
               >
                 {label ? <span>{label}</span> : <span aria-hidden className="block min-h-[1em]" />}
                 {colIdx < HEADER_LABELS.length - 1 ? (
                   <TaskColumnResizeHandle
                     boundaryIndex={colIdx}
-                    onPointerDownResize={onColumnResizePointerDown}
+                    onResizeMouseDown={onColumnResizeMouseDown}
                   />
                 ) : null}
               </div>
@@ -868,7 +1032,7 @@ export function TaskTrackingTableBlockView({
 
           {filteredTasks.map((task) => (
             <div key={task.id} className="contents group/row hover:bg-zinc-900/40">
-              <div className="flex select-none items-center justify-center gap-1 border-b border-r border-zinc-800">
+              <div className="flex min-w-0 select-none items-center justify-center gap-1 border-b border-r border-zinc-800">
                 <DeleteTaskConfirm onConfirm={() => deleteTask(task.id)} />
               </div>
 
@@ -892,46 +1056,18 @@ export function TaskTrackingTableBlockView({
                 />
               </div>
 
-              <div className={cn(cellBase, "relative cursor-pointer")}>
-                <select
-                  value={task.status}
-                  aria-label="Status"
-                  className="absolute inset-0 z-10 cursor-pointer opacity-0"
-                  onChange={(e) =>
-                    updateTask(task.id, { status: parseStatus(e.target.value) })
-                  }
-                >
-                  {TASK_STATUSES.map((s) => (
-                    <option key={s} value={s} className="bg-zinc-900">
-                      {s.replace(/-/g, " ")}
-                    </option>
-                  ))}
-                </select>
-                <span
-                  className={cn(
-                    "whitespace-nowrap rounded-[3px] px-1.5 py-px text-[10px] font-medium leading-tight",
-                    statusBadgeClass(task.status),
-                  )}
-                >
-                  {task.status.replace(/-/g, " ")}
-                </span>
+              <div className={cn(cellBase, "relative p-0")} data-task-table-dropdown="">
+                <TaskStatusPopoverCell
+                  status={task.status}
+                  onSelect={(s) => updateTask(task.id, { status: s })}
+                />
               </div>
 
-              <div className={cellBase}>
-                <select
-                  value={task.urgency}
-                  aria-label="Urgency"
-                  className="w-full cursor-pointer appearance-none bg-transparent text-[13px] text-zinc-400 outline-none transition-colors hover:text-zinc-200"
-                  onChange={(e) =>
-                    updateTask(task.id, { urgency: parseUrgency(e.target.value) })
-                  }
-                >
-                  {TASK_URGENCIES.map((u) => (
-                    <option key={u} value={u} className="bg-zinc-900 text-zinc-200">
-                      {u}
-                    </option>
-                  ))}
-                </select>
+              <div className={cn(cellBase, "p-0")} data-task-table-dropdown="">
+                <TaskUrgencyPopoverCell
+                  urgency={task.urgency}
+                  onSelect={(u) => updateTask(task.id, { urgency: u })}
+                />
               </div>
 
               <div className={cellBase}>

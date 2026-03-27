@@ -2,8 +2,12 @@
 
 import type { PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
-import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  SideMenuController,
+  SuggestionMenuController,
+  useCreateBlockNote,
+} from "@blocknote/react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -11,7 +15,7 @@ import { api } from "../../../convex/_generated/api";
 import { onyxBlockNoteSchema } from "./blocknote-schema";
 import { useEditorSaveState } from "./editor-save-state-provider";
 import { createOnyxSlashMenuGetItems } from "./onyx-blocknote-slash-menu";
-import { onyxSlashMenuFloatingOptions } from "./onyx-slash-menu-floating";
+import { getOnyxSlashMenuFloatingOptions } from "./onyx-slash-menu-floating";
 import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
 
 import "@blocknote/core/fonts/inter.css";
@@ -68,6 +72,13 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
 
   const slashMenuItems = useMemo(() => createOnyxSlashMenuGetItems(editor), [editor]);
 
+  const [slashMenuFloatingOptions, setSlashMenuFloatingOptions] = useState(
+    getOnyxSlashMenuFloatingOptions,
+  );
+  useLayoutEffect(() => {
+    setSlashMenuFloatingOptions(getOnyxSlashMenuFloatingOptions());
+  }, []);
+
   useEffect(() => {
     if (serializedContent === baselineRef.current) {
       return;
@@ -105,11 +116,12 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   ]);
 
   return (
-    <div className="bn-onyx-editor w-full min-h-0">
+    <div className="bn-onyx-editor relative z-0 w-full min-h-0">
       <BlockNoteView
         editor={editor}
         theme="dark"
         slashMenu={false}
+        sideMenu={false}
         onChange={() => {
           const next = JSON.stringify(editor.document);
           setSerializedContent(next);
@@ -120,10 +132,20 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
           }
         }}
       >
+        <SideMenuController
+          floatingUIOptions={{
+            useFloatingOptions: {
+              placement: "right-start",
+            },
+            elementProps: {
+              style: { zIndex: 50 },
+            },
+          }}
+        />
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={slashMenuItems}
-          floatingUIOptions={onyxSlashMenuFloatingOptions}
+          floatingUIOptions={slashMenuFloatingOptions}
           suggestionMenuComponent={ScrollableSuggestionMenu}
         />
       </BlockNoteView>

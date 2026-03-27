@@ -130,65 +130,117 @@ export function formatDueDateStorage(d: Date): string {
 /** Task table has 8 columns: handle, task, description, status, urgency, due, assignee, cal. */
 export const TASK_TABLE_COL_COUNT = 8;
 
-export const DEFAULT_TASK_TABLE_COL_WIDTHS: readonly number[] = [
-  40, 220, 320, 140, 120, 120, 200, 60,
+/** Stored width per column; use `"1fr"` for the flexible Description column (Notion-style). */
+export type TaskTableColumnWidth = number | "1fr";
+
+/** Default layout: fixed px except Description (`1fr`) which fills remaining space. */
+export const DEFAULT_TASK_TABLE_COLUMN_WIDTHS: readonly TaskTableColumnWidth[] = [
+  40, 220, "1fr", 140, 120, 120, 200, 60,
 ];
 
 export const MIN_TASK_TABLE_COL_WIDTHS: readonly number[] = [
   32, 80, 100, 90, 80, 80, 100, 44,
 ];
 
-export function parseTaskTableColumnWidths(raw: string | undefined): number[] {
+export function parseTaskTableColumnWidths(raw: string | undefined): TaskTableColumnWidth[] {
   if (!raw || raw.trim() === "") {
-    return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+    return [...DEFAULT_TASK_TABLE_COLUMN_WIDTHS];
   }
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed) || parsed.length !== TASK_TABLE_COL_COUNT) {
-      return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+      return [...DEFAULT_TASK_TABLE_COLUMN_WIDTHS];
     }
-    return parsed.map((n, i) => {
-      const w = typeof n === "number" ? n : Number(n);
+    return parsed.map((el, i) => {
+      if (el === "1fr" || (typeof el === "string" && el.trim() === "1fr")) {
+        return "1fr" as const;
+      }
+      const w = typeof el === "number" ? el : Number(el);
       if (!Number.isFinite(w)) {
-        return DEFAULT_TASK_TABLE_COL_WIDTHS[i]!;
+        return DEFAULT_TASK_TABLE_COLUMN_WIDTHS[i]!;
       }
       return Math.max(MIN_TASK_TABLE_COL_WIDTHS[i] ?? 40, Math.round(w));
     });
   } catch {
-    return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+    return [...DEFAULT_TASK_TABLE_COLUMN_WIDTHS];
   }
 }
 
 /**
+ * CSS `grid-template-columns` for the task block grid.
+ * Fixed columns use `minmax(min, preferred)` so they can shrink and the table stays within the container width;
+ * the Description column stays `minmax(..., 1fr)` to absorb remaining space.
+ */
+export function taskGridTemplateColumns(widths: readonly TaskTableColumnWidth[]): string {
+  return widths
+    .map((w, i) => {
+      const min = MIN_TASK_TABLE_COL_WIDTHS[i] ?? 40;
+      if (w === "1fr") {
+        return `minmax(${min}px, 1fr)`;
+      }
+      return `minmax(${min}px, ${w}px)`;
+    })
+    .join(" ");
+}
+
+/**
  * Resize by dragging the boundary between column `boundaryIndex` and `boundaryIndex + 1`.
- * Width is transferred between the two columns so the total stays constant.
+ * Fixed–fixed: width transfers between neighbors. Adjacent to `"1fr"`: only the px column changes.
  */
 export function applyBoundaryResize(
-  widths: readonly number[],
+  widths: readonly TaskTableColumnWidth[],
   boundaryIndex: number,
   deltaPx: number,
-): number[] {
+): TaskTableColumnWidth[] {
   if (boundaryIndex < 0 || boundaryIndex >= TASK_TABLE_COL_COUNT - 1) {
     return [...widths];
   }
-  /** Integer device pixels avoid sub-pixel drift in JSON + layout. */
   const d = Math.round(deltaPx);
   if (d === 0) {
     return [...widths];
   }
-  const next = [...widths];
+  const next = [...widths] as TaskTableColumnWidth[];
   const i = boundaryIndex;
-  const minI = MIN_TASK_TABLE_COL_WIDTHS[i]!;
-  const minJ = MIN_TASK_TABLE_COL_WIDTHS[i + 1]!;
-  let clamped = d;
-  if (clamped > 0) {
-    const maxShrinkRight = Math.max(0, next[i + 1]! - minJ);
-    clamped = Math.min(clamped, maxShrinkRight);
-  } else {
-    const maxShrinkLeft = Math.max(0, next[i]! - minI);
-    clamped = Math.max(clamped, -maxShrinkLeft);
+  const L = next[i]!;
+  const R = next[i + 1]!;
+
+  if (L !== "1fr" && R !== "1fr") {
+    const minI = MIN_TASK_TABLE_COL_WIDTHS[i]!;
+    const minJ = MIN_TASK_TABLE_COL_WIDTHS[i + 1]!;
+    let clamped = d;
+    if (clamped > 0) {
+      const maxShrinkRight = Math.max(0, (R as number) - minJ);
+      clamped = Math.min(clamped, maxShrinkRight);
+    } else {
+      const maxShrinkLeft = Math.max(0, (L as number) - minI);
+      clamped = Math.max(clamped, -maxShrinkLeft);
+    }
+    next[i] = (L as number) + clamped;
+    next[i + 1] = (R as number) - clamped;
+    return next;
   }
-  next[i] = next[i]! + clamped;
-  next[i + 1] = next[i + 1]! - clamped;
+
+  if (L !== "1fr" && R === "1fr") {
+    const minL = MIN_TASK_TABLE_COL_WIDTHS[i]!;
+    let clamped = d;
+    if (clamped <= 0) {
+      const maxShrinkLeft = Math.max(0, (L as number) - minL);
+      clamped = Math.max(clamped, -maxShrinkLeft);
+    }
+    next[i] = (L as number) + clamped;
+    return next;
+  }
+
+  if (L === "1fr" && R !== "1fr") {
+    const minR = MIN_TASK_TABLE_COL_WIDTHS[i + 1]!;
+    let clamped = d;
+    if (clamped > 0) {
+      const maxShrinkRight = Math.max(0, (R as number) - minR);
+      clamped = Math.min(clamped, maxShrinkRight);
+    }
+    next[i + 1] = (R as number) - clamped;
+    return next;
+  }
+
   return next;
 }
