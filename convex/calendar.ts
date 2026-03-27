@@ -28,7 +28,9 @@ async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subje
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
     const rows = await ctx.db.query("calendarSubPages").collect();
     const merged = rows.map((n) => ({
       slug: n.slug,
@@ -53,7 +55,9 @@ export const listSubPages = query({
 export const getSubPageMeta = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return null;
+    }
     const slug = args.slug.trim();
     if (slug.length === 0 || RESERVED_SLUGS.has(slug)) {
       return null;

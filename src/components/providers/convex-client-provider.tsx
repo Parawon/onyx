@@ -1,27 +1,44 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { ClerkProvider, useAuth, useUser } from "@clerk/nextjs";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ClerkProvider, useAuth } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api } from "../../../convex/_generated/api";
 
 /** Syncs Clerk profile into Convex `users` + `workspaceMembers` on every session (assignee roster). */
 function WorkspaceMemberSync() {
-  const { user, isLoaded } = useUser();
+  const { isAuthenticated, isLoading: convexAuthLoading } = useConvexAuth();
+  const { userId, isLoaded: clerkSessionLoaded } = useAuth();
+  const { user, isLoaded: userLoaded } = useUser();
   const upsertSelf = useMutation(api.workspaceMembers.upsertSelf);
   const storeUser = useMutation(api.users.storeUser);
 
   useEffect(() => {
-    if (!isLoaded || !user) {
+    if (
+      !userLoaded ||
+      !clerkSessionLoaded ||
+      !userId ||
+      convexAuthLoading ||
+      !isAuthenticated ||
+      !user
+    ) {
       return;
     }
     void storeUser({});
     void upsertSelf({});
-  }, [isLoaded, user, storeUser, upsertSelf]);
+  }, [
+    userLoaded,
+    clerkSessionLoaded,
+    userId,
+    convexAuthLoading,
+    isAuthenticated,
+    user,
+    storeUser,
+    upsertSelf,
+  ]);
 
   return null;
 }

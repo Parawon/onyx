@@ -53,7 +53,9 @@ export const archive = mutation({
 export const getById = query({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return null;
+    }
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       return null;
@@ -126,7 +128,9 @@ export const remove = mutation({
 export const listForSidebar = query({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
     const all = await ctx.db.query("documents").collect();
     return all.filter((d) => !d.isArchived);
   },

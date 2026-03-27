@@ -48,7 +48,9 @@ function findRowForScope<T extends { scope?: string }>(rows: T[], scope: string)
 export const get = query({
   args: { scope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return { _id: undefined, content: "[]" };
+    }
     const scope = normalizeScope(args.scope);
     const rows = await ctx.db.query("goalsEditor").collect();
     const row = findRowForScope(rows, scope);
@@ -85,7 +87,9 @@ export const updateContent = mutation({
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
 
     const navFromTable = await ctx.db.query("goalsSubPages").collect();
 
@@ -139,7 +143,9 @@ export const listSubPages = query({
 export const getSubPageMeta = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return null;
+    }
     const slug = args.slug.trim();
     if (slug.length === 0 || RESERVED_SLUGS.has(slug)) {
       return null;

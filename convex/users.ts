@@ -1,14 +1,6 @@
 import type { UserIdentity } from "convex/server";
 import { mutation, query } from "./_generated/server";
 
-async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<UserIdentity | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-  return identity;
-}
-
 function displayName(identity: UserIdentity): string | undefined {
   const fromName = identity.name?.trim();
   if (fromName) {
@@ -25,7 +17,10 @@ function displayName(identity: UserIdentity): string | undefined {
 export const storeUser = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireAuth(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
     const tokenIdentifier = identity.tokenIdentifier;
     const subject = identity.subject;
 
@@ -57,7 +52,9 @@ export const storeUser = mutation({
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
     const rows = await ctx.db.query("users").collect();
     const out = rows.map((r) => ({
       clerkUserId: r.subject,

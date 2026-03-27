@@ -50,7 +50,7 @@ export function GoalsNavSubmenu() {
   return (
     <>
       <div className="space-y-1 pr-3">
-        {subPages === undefined ? (
+        {!subPages ? (
           <div className="py-2 pl-10 text-xs text-zinc-600">Loading…</div>
         ) : (
           subPages.map((p) => (
@@ -74,7 +74,7 @@ export function GoalsNavSubmenu() {
             setDialogOpen(true);
             setError(null);
           }}
-          disabled={subPages === undefined}
+          disabled={!subPages}
           className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 pl-10 text-sm text-zinc-500 transition-colors hover:bg-zinc-900/40 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="size-4 shrink-0" aria-hidden />

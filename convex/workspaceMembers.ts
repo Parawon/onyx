@@ -1,19 +1,13 @@
-import type { UserIdentity } from "convex/server";
 import { mutation, query } from "./_generated/server";
-
-async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<UserIdentity | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-  return identity;
-}
 
 /** Upsert the current user into the shared roster (call from the client after sign-in). */
 export const upsertSelf = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireAuth(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
     const clerkUserId = identity.subject;
     const name =
       identity.name?.trim() ||
@@ -47,7 +41,9 @@ export const upsertSelf = mutation({
 export const listAssignable = query({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
     const rows = await ctx.db.query("workspaceMembers").collect();
     const out = rows.map((r) => ({
       clerkUserId: r.clerkUserId,

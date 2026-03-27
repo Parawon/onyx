@@ -157,7 +157,9 @@ async function resolveGoalLabel(ctx: QueryCtx, goalScope: string): Promise<strin
 export const getCalendarEvents = query({
   args: { goalScope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      return [];
+    }
     const scopeFilter = args.goalScope !== undefined ? normalizeGoalScope(args.goalScope) : null;
 
     const rows =

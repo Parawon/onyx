@@ -1,10 +1,15 @@
+import type { AuthConfig } from "convex/server";
+
+/**
+ * JWT issuer must match Clerk’s Frontend API URL (Clerk Dashboard → API keys).
+ * This app’s dev instance: `actual-turtle-91.clerk.accounts.dev` (from the publishable key).
+ * For production (`https://clerk.your-domain.com`), change `domain` here and run `npx convex deploy`.
+ */
 export default {
   providers: [
     {
-      // TODO: replace with your Production Clerk Issuer URL (not the .accounts.dev dev issuer)
-      // Example: "https://clerk.your-domain.com"
-      domain: "https://REPLACE_WITH_PRODUCTION_CLERK_ISSUER",
+      domain: "https://actual-turtle-91.clerk.accounts.dev",
       applicationID: "convex",
     },
   ],
-};
+} satisfies AuthConfig;
