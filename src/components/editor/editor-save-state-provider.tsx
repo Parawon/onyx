@@ -63,3 +63,6 @@ export const useEditorSaveState = () => {
   }
   return context;
 };
+
+/** Optional variant for contexts where autosave UI is not rendered (e.g. local-only editor instances). */
+export const useOptionalEditorSaveState = () => useContext(EditorSaveStateContext);

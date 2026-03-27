@@ -18,7 +18,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { onyxBlockNoteSchema } from "./blocknote-schema";
 import { GoalsEditorScopeProvider } from "./goals-editor-scope-context";
-import { useEditorSaveState } from "./editor-save-state-provider";
+import { useOptionalEditorSaveState } from "./editor-save-state-provider";
 import { createOnyxSlashMenuGetItems } from "./onyx-blocknote-slash-menu";
 import { getOnyxSlashMenuFloatingOptions } from "./onyx-slash-menu-floating";
 import { ScrollableSuggestionMenu } from "./scrollable-suggestion-menu";
@@ -78,6 +78,14 @@ const parseBlocks = (content: string): PartialBlock[] | undefined => {
   }
 };
 
+const NOOP_SAVE_STATE = {
+  markError: () => {},
+  markSaved: () => {},
+  markSaving: () => {},
+  resetAutosaveUiForEdit: () => {},
+  setAutosaveVisible: (_visible: boolean) => {},
+};
+
 export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const router = useRouter();
   const { initialContent, kind } = props;
@@ -89,13 +97,8 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const syncCalendarFromGoalsDoc = useMutation(api.calendarEvents.syncFromGoalsDocument);
   const notes = useQuery(api.documents.listForSidebar);
   const goalsSubPages = useQuery(api.goals.listSubPages);
-  const {
-    markError,
-    markSaved,
-    markSaving,
-    resetAutosaveUiForEdit,
-    setAutosaveVisible,
-  } = useEditorSaveState();
+  const saveState = useOptionalEditorSaveState() ?? NOOP_SAVE_STATE;
+  const { markError, markSaved, markSaving, resetAutosaveUiForEdit, setAutosaveVisible } = saveState;
   const initialBlocks = useMemo(() => parseBlocks(initialContent), [initialContent]);
   const [serializedContent, setSerializedContent] = useState(initialContent);
   /** Last persisted value (or server initial); used to skip autosave when unchanged and to hide autosave UI. */
