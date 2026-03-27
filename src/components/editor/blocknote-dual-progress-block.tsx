@@ -16,6 +16,12 @@ export const dualProgressBlock = createReactBlockSpec(
       p2: { default: 50 },
       /** Set true when inserting from slash menu; view opens dialog then clears. */
       openPrompt: { default: false, type: "boolean" },
+      /** JSON string of selected task ids from task-tracking tables in this note. */
+      trackedTaskIdsJSON: { default: "[]" },
+      /** Due date as yyyy-MM-dd. */
+      dueDate: { default: "" },
+      /** Timeline start date as yyyy-MM-dd (captured when due date is set). */
+      timelineStartDate: { default: "" },
     },
     content: "none",
   },
@@ -29,6 +35,9 @@ export const dualProgressBlock = createReactBlockSpec(
         p1={block.props.p1}
         p2={block.props.p2}
         openPrompt={block.props.openPrompt}
+        trackedTaskIdsJSON={block.props.trackedTaskIdsJSON}
+        dueDate={block.props.dueDate}
+        timelineStartDate={block.props.timelineStartDate}
       />
     ),
   },
