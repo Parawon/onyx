@@ -15,6 +15,7 @@ export function GoalsNavSubmenu() {
   const router = useRouter();
   const subPages = useQuery(api.goals.listSubPages);
   const createSubPage = useMutation(api.goals.createSubPage);
+  const ensureCalendarForGoals = useMutation(api.calendar.ensureForGoalsSubPage);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [slugCustom, setSlugCustom] = useState("");
@@ -32,10 +33,12 @@ export function GoalsNavSubmenu() {
     setSubmitting(true);
     try {
       const slugArg = slugTouched && slugCustom.trim() ? slugCustom : undefined;
+      const trimmedLabel = label.trim();
       const { slug } = await createSubPage({
-        label,
+        label: trimmedLabel,
         slug: slugArg,
       });
+      await ensureCalendarForGoals({ slug, label: trimmedLabel });
       setDialogOpen(false);
       setLabel("");
       setSlugCustom("");

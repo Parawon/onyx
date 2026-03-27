@@ -31,4 +31,14 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_slug", ["userId", "slug"]),
+
+  /** Sidebar order + labels for Calendar sub-pages only (`/calendar/[slug]`). Does not create Goals content. */
+  calendarSubPages: defineTable({
+    userId: v.string(),
+    slug: v.string(),
+    label: v.string(),
+    order: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_slug", ["userId", "slug"]),
 });

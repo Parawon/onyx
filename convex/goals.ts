@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { upsertCalendarMirrorForGoals } from "./calendarShared";
 import { mutation, query } from "./_generated/server";
 
 const RESERVED_SLUGS = new Set(["main", "new", "api", "settings", "admin"]);
@@ -225,6 +226,8 @@ export const createSubPage = mutation({
       scope: slug,
     });
 
+    await upsertCalendarMirrorForGoals(ctx, userId, slug, rawLabel);
+
     return { slug };
   },
 });
@@ -253,6 +256,14 @@ export const deleteSubPage = mutation({
     const editorRow = findRowForScope(editors, slug);
     if (editorRow) {
       await ctx.db.delete(editorRow._id);
+    }
+
+    const calendarNav = await ctx.db
+      .query("calendarSubPages")
+      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
+      .first();
+    if (calendarNav) {
+      await ctx.db.delete(calendarNav._id);
     }
 
     if (!nav && !editorRow) {

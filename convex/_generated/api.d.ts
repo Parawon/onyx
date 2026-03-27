@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as calendar from "../calendar.js";
+import type * as calendarShared from "../calendarShared.js";
 import type * as documents from "../documents.js";
 import type * as goals from "../goals.js";
 
@@ -18,6 +20,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  calendar: typeof calendar;
+  calendarShared: typeof calendarShared;
   documents: typeof documents;
   goals: typeof goals;
 }>;
