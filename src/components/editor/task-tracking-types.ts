@@ -9,7 +9,8 @@ export type TaskTrackingRow = {
   urgency: TaskUrgency;
   description: string;
   dueDate: string;
-  responsibility: string;
+  /** Clerk user IDs of assignees (order preserved for display). */
+  assigneeUserIds: string[];
   inCalendar: boolean;
 };
 
@@ -32,27 +33,49 @@ export function parseTasksJSON(raw: string): TaskTrackingRow[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter(isTaskRow);
+    return parsed.map(normalizeLegacyRow).filter((r): r is TaskTrackingRow => r !== null);
   } catch {
     return [];
   }
 }
 
-function isTaskRow(x: unknown): x is TaskTrackingRow {
+/** Accepts legacy rows that used `responsibility` (string) instead of assignee ids. */
+function normalizeLegacyRow(x: unknown): TaskTrackingRow | null {
   if (x === null || typeof x !== "object") {
-    return false;
+    return null;
   }
   const o = x as Record<string, unknown>;
-  return (
-    typeof o.id === "string" &&
-    typeof o.name === "string" &&
-    typeof o.status === "string" &&
-    typeof o.urgency === "string" &&
-    typeof o.description === "string" &&
-    typeof o.dueDate === "string" &&
-    typeof o.responsibility === "string" &&
-    typeof o.inCalendar === "boolean"
-  );
+  if (
+    typeof o.id !== "string" ||
+    typeof o.name !== "string" ||
+    typeof o.status !== "string" ||
+    typeof o.urgency !== "string" ||
+    typeof o.description !== "string" ||
+    typeof o.dueDate !== "string" ||
+    typeof o.inCalendar !== "boolean"
+  ) {
+    return null;
+  }
+  let assigneeUserIds: string[] = [];
+  if (Array.isArray(o.assigneeUserIds)) {
+    assigneeUserIds = o.assigneeUserIds.filter((id): id is string => typeof id === "string");
+  }
+  const status = (TASK_STATUSES as readonly string[]).includes(String(o.status))
+    ? (o.status as TaskStatus)
+    : "backlog";
+  const urgency = (TASK_URGENCIES as readonly string[]).includes(String(o.urgency))
+    ? (o.urgency as TaskUrgency)
+    : "mid";
+  return {
+    id: o.id,
+    name: o.name,
+    status,
+    urgency,
+    description: o.description,
+    dueDate: o.dueDate,
+    assigneeUserIds,
+    inCalendar: o.inCalendar,
+  };
 }
 
 export function stringifyTasks(tasks: TaskTrackingRow[]): string {
@@ -67,7 +90,7 @@ export function newTaskRow(): TaskTrackingRow {
     urgency: "mid",
     description: "",
     dueDate: "",
-    responsibility: "",
+    assigneeUserIds: [],
     inCalendar: false,
   };
 }
