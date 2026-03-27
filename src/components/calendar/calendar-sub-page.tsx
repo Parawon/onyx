@@ -6,13 +6,11 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 
 import { api } from "@convex/_generated/api";
-import {
-  WorkspaceAnnouncementRow,
-  WorkspaceSectionPage,
-} from "@/components/workspace/workspace-section-page";
+import { CalendarPageHeader } from "@/components/calendar/calendar-page-header";
+import { WorkspaceAnnouncementRow } from "@/components/workspace/workspace-section-page";
 import { Button } from "@/components/ui/button";
 
-function DeleteCalendarSubPageButton({ slug }: { slug: string }) {
+function RemoveCalendarButton({ slug }: { slug: string }) {
   const router = useRouter();
   const deleteSubPage = useMutation(api.calendar.deleteSubPage);
   const [busy, setBusy] = useState(false);
@@ -26,7 +24,7 @@ function DeleteCalendarSubPageButton({ slug }: { slug: string }) {
       className="text-zinc-400 hover:bg-zinc-900/60 hover:text-red-400"
       onClick={() => {
         const ok = window.confirm(
-          "Delete this calendar page? This cannot be undone.",
+          "Remove this calendar page? This cannot be undone.",
         );
         if (!ok) {
           return;
@@ -38,13 +36,13 @@ function DeleteCalendarSubPageButton({ slug }: { slug: string }) {
           })
           .catch((err: unknown) => {
             setBusy(false);
-            const message = err instanceof Error ? err.message : "Could not delete this calendar.";
+            const message = err instanceof Error ? err.message : "Could not remove this calendar.";
             window.alert(message);
           });
       }}
     >
       <Trash2 className="mr-1.5 size-4" aria-hidden />
-      {busy ? "Deleting…" : "Delete calendar"}
+      {busy ? "Removing…" : "Remove calendar"}
     </Button>
   );
 }
@@ -70,21 +68,29 @@ export function CalendarSubPage({ slug }: { slug: string }) {
   }
 
   return (
-    <WorkspaceSectionPage
-      title={`Calendar — ${meta.label}`}
-      tagline="Schedule & events"
-      description="Plan reviews, deadlines, and milestones. A full calendar integration can plug in here when you connect your provider."
-      sectionHeading="Upcoming"
-    >
-      <div className="flex max-w-3xl flex-col gap-6">
-        <div className="flex justify-end">
-          <DeleteCalendarSubPageButton slug={decoded} />
-        </div>
-        <div className="space-y-4">
-          <WorkspaceAnnouncementRow title="Executive review — placeholder slot" />
-          <WorkspaceAnnouncementRow title="Sprint planning — TBD" />
-        </div>
+    <div className="flex flex-col bg-background">
+      <CalendarPageHeader suffix={meta.label} right={<RemoveCalendarButton slug={decoded} />} />
+      <div className="mx-auto w-full max-w-[1400px] px-12 pb-12">
+        <section className="mb-16">
+          <div className="mb-8 pt-8">
+            <div className="flex items-center gap-4">
+              <div className="h-1 w-8 rounded-full bg-sky-500/30" />
+              <p className="text-sm font-medium uppercase tracking-[0.3em] text-sky-400">Schedule & events</p>
+            </div>
+          </div>
+          <p className="mt-4 max-w-2xl text-lg font-light leading-relaxed text-zinc-400">
+            Plan reviews, deadlines, and milestones. A full calendar integration can plug in here when you connect
+            your provider.
+          </p>
+          <div className="mt-16">
+            <h2 className="mb-8 text-2xl font-bold tracking-tight text-white">Upcoming</h2>
+            <div className="max-w-3xl space-y-4">
+              <WorkspaceAnnouncementRow title="Executive review — placeholder slot" />
+              <WorkspaceAnnouncementRow title="Sprint planning — TBD" />
+            </div>
+          </div>
+        </section>
       </div>
-    </WorkspaceSectionPage>
+    </div>
   );
 }
