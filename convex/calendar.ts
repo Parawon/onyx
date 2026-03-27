@@ -21,7 +21,10 @@ async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subje
   return identity.subject;
 }
 
-/** Sidebar entries for `/calendar/[slug]` only — independent of Goals. */
+/**
+ * Sidebar entries for `/calendar/[slug]` only — independent of Goals.
+ * Shared workspace: returns all rows (no per-user filter); `userId` on rows is metadata only.
+ */
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {

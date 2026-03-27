@@ -78,6 +78,18 @@ const parseBlocks = (content: string): PartialBlock[] | undefined => {
   }
 };
 
+/** True if two BlockNote JSON payloads are equivalent (avoids re-sync loops from whitespace differences). */
+function sameBlockDocumentJson(a: string, b: string): boolean {
+  if (a === b) {
+    return true;
+  }
+  try {
+    return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+  } catch {
+    return false;
+  }
+}
+
 const NOOP_SAVE_STATE = {
   markError: () => {},
   markSaved: () => {},
@@ -103,13 +115,11 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const [serializedContent, setSerializedContent] = useState(initialContent);
   /** Last persisted value (or server initial); used to skip autosave when unchanged and to hide autosave UI. */
   const baselineRef = useRef(initialContent);
+  /** True while `replaceBlocks` is applying a remote Convex update (avoid marking dirty / autosave). */
+  const applyingRemoteRef = useRef(false);
   const editorShellRef = useRef<HTMLDivElement>(null);
   const [backlinkPickerOpen, setBacklinkPickerOpen] = useState(false);
   const [backlinkQuery, setBacklinkQuery] = useState("");
-
-  useEffect(() => {
-    baselineRef.current = initialContent;
-  }, [initialContent]);
 
   const editor = useCreateBlockNote({
     schema: onyxBlockNoteSchema,
@@ -167,6 +177,35 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   useLayoutEffect(() => {
     setSlashMenuFloatingOptions(getOnyxSlashMenuFloatingOptions());
   }, []);
+
+  /**
+   * Apply live Convex updates when another user saves the same document/goals scope.
+   * Skip while this client has unsaved edits (serialized !== baseline).
+   */
+  useEffect(() => {
+    if (!persistToBackend) {
+      return;
+    }
+    if (serializedContent !== baselineRef.current) {
+      return;
+    }
+    if (sameBlockDocumentJson(initialContent, serializedContent)) {
+      return;
+    }
+    const blocks = parseBlocks(initialContent);
+    const nextBlocks = (
+      blocks && blocks.length > 0 ? blocks : [{ type: "paragraph" as const }]
+    ) as Parameters<typeof editor.replaceBlocks>[1];
+    applyingRemoteRef.current = true;
+    try {
+      editor.replaceBlocks(editor.document, nextBlocks);
+      const after = JSON.stringify(editor.document);
+      setSerializedContent(after);
+      baselineRef.current = after;
+    } finally {
+      applyingRemoteRef.current = false;
+    }
+  }, [persistToBackend, initialContent, serializedContent, editor]);
 
   useEffect(() => {
     if (!persistToBackend) {
@@ -263,6 +302,9 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
       onChange={() => {
         const next = JSON.stringify(editor.document);
         setSerializedContent(next);
+        if (applyingRemoteRef.current) {
+          return;
+        }
         if (persistToBackend && next !== baselineRef.current) {
           resetAutosaveUiForEdit();
           setAutosaveVisible(true);

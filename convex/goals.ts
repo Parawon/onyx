@@ -78,7 +78,10 @@ export const updateContent = mutation({
   },
 });
 
-/** Sidebar entries for Goals sub-pages; merges `goalsSubPages` with legacy `goalsEditor` scopes. */
+/**
+ * Sidebar entries for Goals sub-pages; merges `goalsSubPages` with legacy `goalsEditor` scopes.
+ * Shared workspace: returns all rows (no per-user filter); `userId` on rows is metadata only.
+ */
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {

@@ -405,8 +405,7 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
   const { memberships, isLoaded: orgLoaded } = useOrganization({
     memberships: { pageSize: 100, infinite: true, keepPreviousData: true },
   });
-  const roster = useQuery(api.workspaceMembers.listAssignable);
-  const upsertSelf = useMutation(api.workspaceMembers.upsertSelf);
+  const roster = useQuery(api.users.getAllUsers);
 
   useEffect(() => {
     if (!orgLoaded || !memberships?.hasNextPage || memberships.isFetching) {
@@ -414,12 +413,6 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
     }
     void memberships.fetchNext();
   }, [orgLoaded, memberships]);
-
-  useEffect(() => {
-    if (user) {
-      void upsertSelf({});
-    }
-  }, [user, upsertSelf]);
 
   return useMemo(() => {
     const map = new Map<string, AssigneeProfile>();

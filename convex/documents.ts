@@ -121,6 +121,7 @@ export const remove = mutation({
 
 /**
  * All non-archived documents in the shared workspace (for sidebar tree).
+ * Shared workspace: returns all rows (no per-user filter); `userId` on rows is metadata only.
  */
 export const listForSidebar = query({
   args: {},

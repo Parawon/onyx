@@ -50,6 +50,19 @@ export default defineSchema({
    * `goalScope` is `"main"` or a Goals sub-page slug.
    */
   /**
+   * Clerk users synced on sign-in (`users.storeUser`). `subject` is JWT `sub` (Clerk user id), matches task assignee ids.
+   */
+  users: defineTable({
+    tokenIdentifier: v.string(),
+    subject: v.string(),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    pictureUrl: v.optional(v.string()),
+  })
+    .index("by_token", ["tokenIdentifier"])
+    .index("by_subject", ["subject"]),
+
+  /**
    * Users who have signed in at least once — used for shared assignee pickers (not filtered by org).
    * `clerkUserId` matches Clerk `user.id` / JWT `sub`.
    */
