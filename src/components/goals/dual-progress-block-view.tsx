@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 
 import { Calendar } from "@/components/ui/calendar";
 import { DualProgressBar } from "./dual-progress-bar";
+import { taskNameToPlainText } from "@/components/editor/task-name-field";
 import {
   formatDueDateStorage,
   parseDueDateString,
@@ -102,7 +103,11 @@ function extractTaskChoicesFromEditorDocument(editor: BlockNoteEditor<any, any, 
         continue;
       }
       seen.add(row.id);
-      choices.push({ id: row.id, name: row.name || "Untitled task", status: row.status });
+      choices.push({
+        id: row.id,
+        name: taskNameToPlainText(row.name) || "Untitled task",
+        status: row.status,
+      });
     }
   }
   return choices;

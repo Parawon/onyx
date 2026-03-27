@@ -2,7 +2,7 @@
 
 import type { BlockNoteEditor } from "@blocknote/core";
 import { useOrganization, useUser } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Filter, Plus, Trash2, X } from "lucide-react";
 import {
   useCallback,
@@ -20,6 +20,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 
+import {
+  TaskNameField,
+  type TaskNameSuggestionTarget,
+  taskNameToPlainText,
+} from "./task-name-field";
 import {
   applyBoundaryResize,
   formatDueDateStorage,
@@ -691,6 +696,8 @@ export function TaskTrackingTableBlockView({
   goalsScope,
 }: TaskTrackingTableBlockViewProps) {
   const directory = useAssigneeDirectory();
+  const notes = useQuery(api.documents.listForSidebar);
+  const goalsSubPages = useQuery(api.goals.listSubPages);
   const tasks = useMemo(() => parseTasksJSON(tasksJSON), [tasksJSON]);
   const tasksRef = useRef(tasks);
   useEffect(() => {
@@ -716,7 +723,7 @@ export function TaskTrackingTableBlockView({
       void upsertCalendarEvent({
         goalScope: goalsScope,
         sourceTaskId: row.id,
-        title: row.name,
+        title: taskNameToPlainText(row.name) || "Untitled task",
         description: row.description,
         dueDate: row.dueDate,
         status: row.status,
@@ -952,6 +959,27 @@ export function TaskTrackingTableBlockView({
     "flex min-w-0 items-center border-b border-r border-zinc-800 px-3 py-1.5 transition-colors focus-within:bg-zinc-900/50";
   const ghostInput =
     "w-full border-none bg-transparent text-[14px] text-zinc-200 outline-none placeholder:text-zinc-700 focus:placeholder:text-zinc-600";
+  const taskNameSuggestions = useMemo(() => {
+    const links: TaskNameSuggestionTarget[] = [
+      { label: "Goals - Company", href: "/goals", aliases: ["goals", "company"] },
+      { label: "Notes home", href: "/notes", aliases: ["notes", "home"] },
+    ];
+    for (const n of notes ?? []) {
+      links.push({
+        label: `Note: ${n.title || "Untitled"}`,
+        href: `/documents/${n._id}`,
+        aliases: ["note", "doc", (n.title || "").toLowerCase()],
+      });
+    }
+    for (const g of goalsSubPages ?? []) {
+      links.push({
+        label: `Goals: ${g.label}`,
+        href: `/goals/${encodeURIComponent(g.slug)}`,
+        aliases: ["goals", "page", g.slug.toLowerCase(), g.label.toLowerCase()],
+      });
+    }
+    return links;
+  }, [goalsSubPages, notes]);
 
   return (
     <div
@@ -1126,12 +1154,14 @@ export function TaskTrackingTableBlockView({
               </div>
 
               <div className={cellBase}>
-                <input
-                  className={cn(ghostInput, "font-medium text-white")}
+                <TaskNameField
                   value={task.name}
+                  onChange={(name) => updateTask(task.id, { name })}
+                  suggestions={taskNameSuggestions}
+                  className="font-medium text-white"
+                  inputClassName={cn(ghostInput, "font-medium text-white")}
                   placeholder="Untitled"
                   aria-label="Task name"
-                  onChange={(e) => updateTask(task.id, { name: e.target.value })}
                 />
               </div>
 

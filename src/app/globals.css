@@ -85,6 +85,19 @@ body {
   background-color: var(--background);
 }
 
+/* Hyperlinks: blue + underline (BlockNote + task table inline links) */
+.bn-onyx-editor .bn-editor a[href],
+.onyx-inline-link {
+  color: rgb(59, 130, 246);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bn-onyx-editor .bn-editor a[href]:hover,
+.onyx-inline-link:hover {
+  color: rgb(96, 165, 250);
+}
+
 .editorial-shadow {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
 }

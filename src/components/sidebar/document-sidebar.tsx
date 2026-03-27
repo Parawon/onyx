@@ -21,8 +21,6 @@ import { GoalsNavSubmenu } from "@/components/goals/goals-sidebar-submenu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Onyx";
-
 /** Width of the icon rail — must match collapsed sidebar (`w-[52px]`) so icons stay aligned when toggling. */
 const ICON_RAIL = "w-[52px]";
 
@@ -283,7 +281,6 @@ export function DocumentSidebar() {
         >
           {!narrow && (
             <div className="min-w-0 flex-1 pr-2 leading-tight">
-              <h1 className="truncate text-lg font-bold tracking-tighter text-white">{COMPANY_NAME}</h1>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 powered by Onyx
               </p>
