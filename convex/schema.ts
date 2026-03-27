@@ -41,4 +41,27 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_slug", ["userId", "slug"]),
+
+  /**
+   * Tasks mirrored from Goals BlockNote task-tracking blocks (`inCalendar: true`).
+   * `goalScope` is `"main"` or a Goals sub-page slug.
+   */
+  calendarEvents: defineTable({
+    userId: v.string(),
+    goalScope: v.string(),
+    sourceTaskId: v.string(),
+    title: v.string(),
+    description: v.string(),
+    dueDate: v.string(),
+    status: v.string(),
+    urgency: v.string(),
+    assigneeUserIds: v.array(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_goalScope", ["userId", "goalScope"])
+    .index("by_user_and_goalScope_and_sourceTaskId", [
+      "userId",
+      "goalScope",
+      "sourceTaskId",
+    ]),
 });

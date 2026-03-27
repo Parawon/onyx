@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { api } from "@convex/_generated/api";
 import { CalendarPageHeader } from "@/components/calendar/calendar-page-header";
-import { WorkspaceAnnouncementRow } from "@/components/workspace/workspace-section-page";
+import { OnyxCalendar } from "@/components/calendar/onyx-calendar";
 import { Button } from "@/components/ui/button";
 
 function RemoveCalendarButton({ slug }: { slug: string }) {
@@ -50,6 +50,7 @@ function RemoveCalendarButton({ slug }: { slug: string }) {
 export function CalendarSubPage({ slug }: { slug: string }) {
   const decoded = decodeURIComponent(slug);
   const meta = useQuery(api.calendar.getSubPageMeta, { slug: decoded });
+  const pageEvents = useQuery(api.calendarEvents.getCalendarEvents, { goalScope: decoded });
 
   if (meta === undefined) {
     return (
@@ -71,25 +72,14 @@ export function CalendarSubPage({ slug }: { slug: string }) {
     <div className="flex flex-col bg-background">
       <CalendarPageHeader suffix={meta.label} right={<RemoveCalendarButton slug={decoded} />} />
       <div className="mx-auto w-full max-w-[1400px] px-12 pb-12">
-        <section className="mb-16">
-          <div className="mb-8 pt-8">
-            <div className="flex items-center gap-4">
-              <div className="h-1 w-8 rounded-full bg-sky-500/30" />
-              <p className="text-sm font-medium uppercase tracking-[0.3em] text-sky-400">Schedule & events</p>
-            </div>
-          </div>
-          <p className="mt-4 max-w-2xl text-lg font-light leading-relaxed text-zinc-400">
-            Plan reviews, deadlines, and milestones. A full calendar integration can plug in here when you connect
-            your provider.
+        <section className="mb-8 pt-6">
+          <p className="max-w-2xl text-sm leading-relaxed text-zinc-500">
+            Tasks from the matching Goals page appear here when marked with{" "}
+            <span className="text-zinc-400">Cal</span>. Use the same URL slug for Goals and Calendar (e.g.{" "}
+            <span className="font-mono text-zinc-400">/goals/{decoded}</span>).
           </p>
-          <div className="mt-16">
-            <h2 className="mb-8 text-2xl font-bold tracking-tight text-white">Upcoming</h2>
-            <div className="max-w-3xl space-y-4">
-              <WorkspaceAnnouncementRow title="Executive review — placeholder slot" />
-              <WorkspaceAnnouncementRow title="Sprint planning — TBD" />
-            </div>
-          </div>
         </section>
+        <OnyxCalendar mode="local" events={pageEvents ?? undefined} />
       </div>
     </div>
   );

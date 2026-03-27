@@ -13,6 +13,7 @@ import { useMutation } from "convex/react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { onyxBlockNoteSchema } from "./blocknote-schema";
+import { GoalsEditorScopeProvider } from "./goals-editor-scope-context";
 import { useEditorSaveState } from "./editor-save-state-provider";
 import { createOnyxSlashMenuGetItems } from "./onyx-blocknote-slash-menu";
 import { getOnyxSlashMenuFloatingOptions } from "./onyx-slash-menu-floating";
@@ -49,6 +50,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const goalsScope = kind === "goals" ? props.goalsScope : undefined;
   const updateDocument = useMutation(api.documents.update);
   const updateGoalsContent = useMutation(api.goals.updateContent);
+  const syncCalendarFromGoalsDoc = useMutation(api.calendarEvents.syncFromGoalsDocument);
   const {
     markError,
     markSaved,
@@ -113,42 +115,52 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
     setAutosaveVisible,
     updateDocument,
     updateGoalsContent,
+    syncCalendarFromGoalsDoc,
+    goalsScope,
   ]);
+
+  const editorTree = (
+    <BlockNoteView
+      editor={editor}
+      theme="dark"
+      slashMenu={false}
+      sideMenu={false}
+      onChange={() => {
+        const next = JSON.stringify(editor.document);
+        setSerializedContent(next);
+        if (next !== baselineRef.current) {
+          resetAutosaveUiForEdit();
+          setAutosaveVisible(true);
+          markSaving();
+        }
+      }}
+    >
+      <SideMenuController
+        floatingUIOptions={{
+          useFloatingOptions: {
+            placement: "right-start",
+          },
+          elementProps: {
+            style: { zIndex: 50 },
+          },
+        }}
+      />
+      <SuggestionMenuController
+        triggerCharacter="/"
+        getItems={slashMenuItems}
+        floatingUIOptions={slashMenuFloatingOptions}
+        suggestionMenuComponent={ScrollableSuggestionMenu}
+      />
+    </BlockNoteView>
+  );
 
   return (
     <div className="bn-onyx-editor relative z-0 w-full min-h-0">
-      <BlockNoteView
-        editor={editor}
-        theme="dark"
-        slashMenu={false}
-        sideMenu={false}
-        onChange={() => {
-          const next = JSON.stringify(editor.document);
-          setSerializedContent(next);
-          if (next !== baselineRef.current) {
-            resetAutosaveUiForEdit();
-            setAutosaveVisible(true);
-            markSaving();
-          }
-        }}
-      >
-        <SideMenuController
-          floatingUIOptions={{
-            useFloatingOptions: {
-              placement: "right-start",
-            },
-            elementProps: {
-              style: { zIndex: 50 },
-            },
-          }}
-        />
-        <SuggestionMenuController
-          triggerCharacter="/"
-          getItems={slashMenuItems}
-          floatingUIOptions={slashMenuFloatingOptions}
-          suggestionMenuComponent={ScrollableSuggestionMenu}
-        />
-      </BlockNoteView>
+      {kind === "goals" && goalsScope != null ? (
+        <GoalsEditorScopeProvider scope={goalsScope}>{editorTree}</GoalsEditorScopeProvider>
+      ) : (
+        editorTree
+      )}
     </div>
   );
 };

@@ -2,6 +2,7 @@
 
 import type { BlockNoteEditor } from "@blocknote/core";
 import { useOrganization, useUser } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
 import { Filter, Plus, Trash2, X } from "lucide-react";
 import {
   useCallback,
@@ -17,6 +18,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { api } from "@convex/_generated/api";
 
 import {
   applyBoundaryResize,
@@ -676,6 +678,8 @@ export type TaskTrackingTableBlockViewProps = {
   columnWidthsJSON: string;
   block: Parameters<BlockNoteEditor<any, any, any>["updateBlock"]>[0];
   editor: BlockNoteEditor<any, any, any>;
+  /** Goals workspace scope (`"main"` or sub-page slug); enables Convex calendar sync. */
+  goalsScope?: string;
 };
 
 export function TaskTrackingTableBlockView({
@@ -684,9 +688,64 @@ export function TaskTrackingTableBlockView({
   columnWidthsJSON,
   block,
   editor,
+  goalsScope,
 }: TaskTrackingTableBlockViewProps) {
   const directory = useAssigneeDirectory();
   const tasks = useMemo(() => parseTasksJSON(tasksJSON), [tasksJSON]);
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+  const upsertCalendarEvent = useMutation(api.calendarEvents.upsertEvent);
+  const removeCalendarEvent = useMutation(api.calendarEvents.removeEvent);
+  const calendarDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (calendarDebounceRef.current) {
+        clearTimeout(calendarDebounceRef.current);
+      }
+    };
+  }, []);
+
+  const flushCalendarUpsert = useCallback(
+    (row: TaskTrackingRow) => {
+      if (!goalsScope || !row.inCalendar) {
+        return;
+      }
+      void upsertCalendarEvent({
+        goalScope: goalsScope,
+        sourceTaskId: row.id,
+        title: row.name,
+        description: row.description,
+        dueDate: row.dueDate,
+        status: row.status,
+        urgency: row.urgency,
+        assigneeUserIds: row.assigneeUserIds,
+      });
+    },
+    [goalsScope, upsertCalendarEvent],
+  );
+
+  const scheduleCalendarUpsertForTask = useCallback(
+    (taskId: string) => {
+      if (!goalsScope) {
+        return;
+      }
+      if (calendarDebounceRef.current) {
+        clearTimeout(calendarDebounceRef.current);
+      }
+      calendarDebounceRef.current = setTimeout(() => {
+        calendarDebounceRef.current = null;
+        const row = tasksRef.current.find((t) => t.id === taskId);
+        if (row?.inCalendar) {
+          flushCalendarUpsert(row);
+        }
+      }, 380);
+    },
+    [goalsScope, flushCalendarUpsert],
+  );
+
   const blockId = typeof block === "string" ? block : block.id;
   const [titleDraft, setTitleDraft] = useState(title);
   const [colWidths, setColWidths] = useState(() =>
@@ -768,8 +827,34 @@ export function TaskTrackingTableBlockView({
     (id: string, patch: Partial<TaskTrackingRow>) => {
       const next = tasks.map((t) => (t.id === id ? { ...t, ...patch } : t));
       persist(resolvedTitle(), next);
+      if (!goalsScope) {
+        return;
+      }
+      const row = next.find((t) => t.id === id);
+      if (!row) {
+        return;
+      }
+      if (patch.inCalendar === true) {
+        flushCalendarUpsert(row);
+      } else if (patch.inCalendar === false) {
+        if (calendarDebounceRef.current) {
+          clearTimeout(calendarDebounceRef.current);
+          calendarDebounceRef.current = null;
+        }
+        void removeCalendarEvent({ goalScope: goalsScope, sourceTaskId: id });
+      } else if (row.inCalendar) {
+        scheduleCalendarUpsertForTask(id);
+      }
     },
-    [tasks, persist, resolvedTitle],
+    [
+      tasks,
+      persist,
+      resolvedTitle,
+      goalsScope,
+      flushCalendarUpsert,
+      removeCalendarEvent,
+      scheduleCalendarUpsertForTask,
+    ],
   );
 
   const addTask = useCallback(() => {
@@ -778,9 +863,13 @@ export function TaskTrackingTableBlockView({
 
   const deleteTask = useCallback(
     (id: string) => {
+      const prev = tasks.find((t) => t.id === id);
       persist(resolvedTitle(), tasks.filter((t) => t.id !== id));
+      if (goalsScope && prev?.inCalendar) {
+        void removeCalendarEvent({ goalScope: goalsScope, sourceTaskId: id });
+      }
     },
-    [tasks, persist, resolvedTitle],
+    [tasks, persist, resolvedTitle, goalsScope, removeCalendarEvent],
   );
 
   const commitTitle = useCallback(() => {

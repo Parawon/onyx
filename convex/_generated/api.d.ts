@@ -9,6 +9,7 @@
  */
 
 import type * as calendar from "../calendar.js";
+import type * as calendarEvents from "../calendarEvents.js";
 import type * as calendarShared from "../calendarShared.js";
 import type * as documents from "../documents.js";
 import type * as goals from "../goals.js";
@@ -21,6 +22,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   calendar: typeof calendar;
+  calendarEvents: typeof calendarEvents;
   calendarShared: typeof calendarShared;
   documents: typeof documents;
   goals: typeof goals;
