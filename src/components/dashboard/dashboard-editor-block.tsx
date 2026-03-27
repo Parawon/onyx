@@ -17,7 +17,7 @@ export function DashboardEditorBlock() {
   });
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4">
+    <div className="bn-onyx-editor p-0">
       <BlockNoteView editor={editor} theme="dark" />
     </div>
   );
