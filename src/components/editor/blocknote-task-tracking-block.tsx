@@ -15,6 +15,8 @@ export const taskTrackingTableBlock = createReactBlockSpec(
       title: { default: "Project Tasks" },
       /** JSON string: TaskTrackingRow[] */
       tasksJSON: { default: "[]" },
+      /** JSON string: number[] of pixel widths for 8 columns (optional). */
+      columnWidthsJSON: { default: "" },
     },
     content: "none",
   },
@@ -26,6 +28,7 @@ export const taskTrackingTableBlock = createReactBlockSpec(
         editor={editor}
         title={block.props.title}
         tasksJSON={block.props.tasksJSON}
+        columnWidthsJSON={block.props.columnWidthsJSON}
       />
     ),
   },

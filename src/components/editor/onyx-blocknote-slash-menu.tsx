@@ -37,7 +37,7 @@ export function createOnyxSlashMenuGetItems(editor: BlockNoteEditor<any, any, an
       onItemClick: () => {
         insertOrUpdateBlockForSlashMenu(editor, {
           type: "taskTrackingTable",
-          props: { title: "Project Tasks", tasksJSON: "[]" },
+          props: { title: "Project Tasks", tasksJSON: "[]", columnWidthsJSON: "" },
         });
       },
       icon: <TableProperties className="size-[18px]" aria-hidden />,

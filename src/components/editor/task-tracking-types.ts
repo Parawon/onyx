@@ -94,3 +94,101 @@ export function newTaskRow(): TaskTrackingRow {
     inCalendar: false,
   };
 }
+
+/** Parse stored due date (`yyyy-MM-dd` or legacy free text) to a local calendar date. */
+export function parseDueDateString(raw: string): Date | undefined {
+  if (!raw.trim()) {
+    return undefined;
+  }
+  const t = raw.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    const date = new Date(y, mo - 1, d);
+    if (
+      date.getFullYear() !== y ||
+      date.getMonth() !== mo - 1 ||
+      date.getDate() !== d
+    ) {
+      return undefined;
+    }
+    return date;
+  }
+  const parsed = new Date(t);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+export function formatDueDateStorage(d: Date): string {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+/** Task table has 8 columns: handle, task, description, status, urgency, due, assignee, cal. */
+export const TASK_TABLE_COL_COUNT = 8;
+
+export const DEFAULT_TASK_TABLE_COL_WIDTHS: readonly number[] = [
+  40, 220, 320, 140, 120, 120, 200, 60,
+];
+
+export const MIN_TASK_TABLE_COL_WIDTHS: readonly number[] = [
+  32, 80, 100, 90, 80, 80, 100, 44,
+];
+
+export function parseTaskTableColumnWidths(raw: string | undefined): number[] {
+  if (!raw || raw.trim() === "") {
+    return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length !== TASK_TABLE_COL_COUNT) {
+      return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+    }
+    return parsed.map((n, i) => {
+      const w = typeof n === "number" ? n : Number(n);
+      if (!Number.isFinite(w)) {
+        return DEFAULT_TASK_TABLE_COL_WIDTHS[i]!;
+      }
+      return Math.max(MIN_TASK_TABLE_COL_WIDTHS[i] ?? 40, Math.round(w));
+    });
+  } catch {
+    return [...DEFAULT_TASK_TABLE_COL_WIDTHS];
+  }
+}
+
+/**
+ * Resize by dragging the boundary between column `boundaryIndex` and `boundaryIndex + 1`.
+ * Width is transferred between the two columns so the total stays constant.
+ */
+export function applyBoundaryResize(
+  widths: readonly number[],
+  boundaryIndex: number,
+  deltaPx: number,
+): number[] {
+  if (boundaryIndex < 0 || boundaryIndex >= TASK_TABLE_COL_COUNT - 1) {
+    return [...widths];
+  }
+  /** Integer device pixels avoid sub-pixel drift in JSON + layout. */
+  const d = Math.round(deltaPx);
+  if (d === 0) {
+    return [...widths];
+  }
+  const next = [...widths];
+  const i = boundaryIndex;
+  const minI = MIN_TASK_TABLE_COL_WIDTHS[i]!;
+  const minJ = MIN_TASK_TABLE_COL_WIDTHS[i + 1]!;
+  let clamped = d;
+  if (clamped > 0) {
+    const maxShrinkRight = Math.max(0, next[i + 1]! - minJ);
+    clamped = Math.min(clamped, maxShrinkRight);
+  } else {
+    const maxShrinkLeft = Math.max(0, next[i]! - minI);
+    clamped = Math.max(clamped, -maxShrinkLeft);
+  }
+  next[i] = next[i]! + clamped;
+  next[i + 1] = next[i + 1]! - clamped;
+  return next;
+}

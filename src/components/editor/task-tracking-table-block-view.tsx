@@ -2,21 +2,28 @@
 
 import type { BlockNoteEditor } from "@blocknote/core";
 import { useOrganization, useUser } from "@clerk/nextjs";
-import { Plus, Trash2, X } from "lucide-react";
+import { Filter, Plus, Trash2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type SyntheticEvent,
 } from "react";
 
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 import {
+  applyBoundaryResize,
+  formatDueDateStorage,
   newTaskRow,
+  parseDueDateString,
   parseTasksJSON,
+  parseTaskTableColumnWidths,
   stringifyTasks,
   TASK_STATUSES,
   TASK_URGENCIES,
@@ -28,8 +35,177 @@ import {
 const DEFAULT_TITLE = "Project Tasks";
 const MAX_ASSIGNEE_AVATARS = 5;
 
+const HEADER_LABELS: readonly (string | null)[] = [
+  null,
+  "Task",
+  "Description",
+  "Status",
+  "Urgency",
+  "Due Date",
+  "Assignee",
+  "Cal",
+];
+
 function stopPm(e: SyntheticEvent) {
   e.stopPropagation();
+}
+
+/** Parent capture must not swallow pointerdown for column resize — children never receive it if we stop here. */
+function stopPmCaptureUnlessColumnResize(e: ReactPointerEvent<HTMLDivElement>) {
+  const t = e.target;
+  if (t instanceof Element && t.closest("[data-task-column-resize]")) {
+    return;
+  }
+  e.stopPropagation();
+}
+
+function TaskColumnResizeHandle({
+  boundaryIndex,
+  onPointerDownResize,
+}: {
+  boundaryIndex: number;
+  onPointerDownResize: (e: ReactPointerEvent<HTMLDivElement>, boundaryIndex: number) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize between columns ${boundaryIndex + 1} and ${boundaryIndex + 2}`}
+      className="absolute end-0 top-0 z-10 h-full w-3 max-w-[50%] -translate-x-1/2 cursor-col-resize touch-none select-none hover:bg-sky-500/35"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onPointerDownResize(e, boundaryIndex);
+      }}
+    />
+  );
+}
+
+function DueDatePickerCell({
+  value,
+  onChange,
+  ghostInputClass,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  ghostInputClass: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => parseDueDateString(value), [value]);
+
+  const label = useMemo(() => {
+    if (!selected) {
+      return "Empty";
+    }
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(selected);
+  }, [selected]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            ghostInputClass,
+            "w-full cursor-pointer text-left text-[13px] hover:text-zinc-200",
+            !selected && "text-zinc-500 placeholder:text-zinc-700",
+          )}
+          onMouseDown={stopPm}
+          onPointerDownCapture={stopPm}
+          aria-label="Due date"
+          aria-expanded={open}
+        >
+          <span
+            className={cn(
+              !selected && "opacity-0 group-hover/row:opacity-100",
+              selected && "text-zinc-200",
+            )}
+          >
+            {label}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-auto border-zinc-800 p-0"
+        onMouseDown={stopPm}
+        onPointerDownCapture={stopPm}
+      >
+        <Calendar
+          mode="single"
+          selected={selected}
+          defaultMonth={selected ?? new Date()}
+          onSelect={(d) => {
+            onChange(d ? formatDueDateStorage(d) : "");
+            setOpen(false);
+          }}
+          autoFocus
+        />
+        <div className="border-t border-zinc-800 px-2 py-1.5">
+          <button
+            type="button"
+            className="w-full rounded-md px-2 py-1.5 text-left text-[12px] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-300"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          >
+            Clear date
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DeleteTaskConfirm({ onConfirm }: { onConfirm: () => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Delete task"
+          aria-expanded={open}
+          className="rounded p-1 text-zinc-600 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover/row:opacity-100"
+          onMouseDown={stopPm}
+          onPointerDownCapture={stopPm}
+        >
+          <Trash2 className="size-2.5" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        side="bottom"
+        className="w-[220px] border-zinc-800 p-3"
+        onMouseDown={stopPm}
+        onPointerDownCapture={stopPm}
+      >
+        <p className="mb-3 text-sm text-zinc-300">Delete this task? This can’t be undone.</p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-md px-2.5 py-1.5 text-[12px] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-md bg-red-500/15 px-2.5 py-1.5 text-[12px] font-medium text-red-400 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/25"
+            onClick={() => {
+              onConfirm();
+              setOpen(false);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function statusBadgeClass(status: TaskStatus): string {
@@ -142,7 +318,7 @@ function AssigneeAvatar({
         <img
           src={profile.imageUrl}
           alt=""
-          className="size-7 rounded-full object-cover ring-2 ring-zinc-900"
+          className="size-6 rounded-full object-cover ring-2 ring-zinc-900"
           onError={() => setBroken(true)}
         />
       ) : (
@@ -155,7 +331,7 @@ function AssigneeAvatar({
       )}
       <button
         type="button"
-        className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 opacity-0 shadow ring-1 ring-zinc-600 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover/ava:opacity-100"
+        className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 opacity-0 shadow ring-1 ring-zinc-600 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover/ava:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
           onRemove();
@@ -225,7 +401,7 @@ function AssigneeCell({
   return (
     <div
       ref={wrapRef}
-      className="relative flex min-h-9 min-w-0 flex-1 flex-wrap items-center gap-1.5"
+      className="relative flex min-h-7 min-w-0 flex-1 flex-wrap items-center gap-1"
       onMouseDown={stopPm}
       onPointerDownCapture={stopPm}
     >
@@ -283,7 +459,7 @@ function AssigneeCell({
 
       <select
         aria-label="Add assignee"
-        className="max-w-[120px] shrink-0 cursor-pointer truncate rounded border border-transparent bg-transparent py-0.5 text-[11px] text-zinc-500 outline-none hover:border-zinc-700 hover:text-zinc-300"
+        className="min-w-0 max-w-full shrink cursor-pointer truncate rounded border border-transparent bg-transparent py-0.5 text-[11px] text-zinc-500 outline-none hover:border-zinc-700 hover:text-zinc-300"
         value=""
         onChange={(e) => {
           const v = e.target.value;
@@ -309,6 +485,8 @@ function AssigneeCell({
 export type TaskTrackingTableBlockViewProps = {
   title: string;
   tasksJSON: string;
+  /** JSON array of 8 column widths in px; empty uses defaults. */
+  columnWidthsJSON: string;
   block: Parameters<BlockNoteEditor<any, any, any>["updateBlock"]>[0];
   editor: BlockNoteEditor<any, any, any>;
 };
@@ -316,6 +494,7 @@ export type TaskTrackingTableBlockViewProps = {
 export function TaskTrackingTableBlockView({
   title,
   tasksJSON,
+  columnWidthsJSON,
   block,
   editor,
 }: TaskTrackingTableBlockViewProps) {
@@ -323,18 +502,96 @@ export function TaskTrackingTableBlockView({
   const tasks = useMemo(() => parseTasksJSON(tasksJSON), [tasksJSON]);
   const blockId = typeof block === "string" ? block : block.id;
   const [titleDraft, setTitleDraft] = useState(title);
+  const [colWidths, setColWidths] = useState(() =>
+    parseTaskTableColumnWidths(columnWidthsJSON),
+  );
 
   useEffect(() => {
     setTitleDraft(title);
   }, [title]);
 
+  useEffect(() => {
+    setColWidths(parseTaskTableColumnWidths(columnWidthsJSON));
+  }, [columnWidthsJSON]);
+
+  const colWidthsRef = useRef(colWidths);
+  useEffect(() => {
+    colWidthsRef.current = colWidths;
+  }, [colWidths]);
+
   const persist = useCallback(
     (nextTitle: string, nextTasks: TaskTrackingRow[]) => {
       editor.updateBlock(blockId, {
-        props: { title: nextTitle, tasksJSON: stringifyTasks(nextTasks) },
+        props: {
+          title: nextTitle,
+          tasksJSON: stringifyTasks(nextTasks),
+          columnWidthsJSON: JSON.stringify(colWidthsRef.current),
+        },
       });
     },
     [blockId, editor],
+  );
+
+  const onColumnResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>, boundaryIndex: number) => {
+      const startX = e.clientX;
+      const startWidths = [...colWidthsRef.current];
+      const captureEl = e.currentTarget as HTMLDivElement;
+      const pointerId = e.pointerId;
+      try {
+        captureEl.setPointerCapture(pointerId);
+      } catch {
+        /* already captured or unsupported */
+      }
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const onMove = (ev: PointerEvent) => {
+        const dx = ev.clientX - startX;
+        setColWidths(applyBoundaryResize(startWidths, boundaryIndex, dx));
+      };
+
+      let ended = false;
+      const done = (ev: PointerEvent) => {
+        if (ended) {
+          return;
+        }
+        ended = true;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", done);
+        window.removeEventListener("pointercancel", done);
+
+        try {
+          if (captureEl.releasePointerCapture) {
+            captureEl.releasePointerCapture(pointerId);
+          }
+        } catch {
+          /* not capturing */
+        }
+
+        const dx = ev.clientX - startX;
+        const final = applyBoundaryResize(startWidths, boundaryIndex, dx);
+        setColWidths(final);
+        colWidthsRef.current = final;
+
+        const t = titleDraft.trim() || DEFAULT_TITLE;
+        editor.updateBlock(blockId, {
+          props: {
+            title: t,
+            tasksJSON: stringifyTasks(tasks),
+            columnWidthsJSON: JSON.stringify(final),
+          },
+        });
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", done);
+      window.addEventListener("pointercancel", done);
+    },
+    [blockId, editor, tasks, titleDraft],
   );
 
   const resolvedTitle = useCallback(
@@ -367,6 +624,76 @@ export function TaskTrackingTableBlockView({
     persist(t, tasks);
   }, [resolvedTitle, tasks, persist]);
 
+  /**
+   * Include-only filter: empty array = no filter on that axis (all values allowed).
+   * Non-empty = show only rows whose status / urgency is in the list (AND across axes).
+   */
+  const [includedStatuses, setIncludedStatuses] = useState<TaskStatus[]>([]);
+  const [includedUrgencies, setIncludedUrgencies] = useState<TaskUrgency[]>([]);
+  const [draftIncludedStatuses, setDraftIncludedStatuses] = useState<TaskStatus[]>([]);
+  const [draftIncludedUrgencies, setDraftIncludedUrgencies] = useState<TaskUrgency[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const filterActive =
+    includedStatuses.length > 0 || includedUrgencies.length > 0;
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (includedStatuses.length > 0 && !includedStatuses.includes(t.status)) {
+        return false;
+      }
+      if (includedUrgencies.length > 0 && !includedUrgencies.includes(t.urgency)) {
+        return false;
+      }
+      return true;
+    });
+  }, [tasks, includedStatuses, includedUrgencies]);
+
+  const handleFilterOpenChange = useCallback(
+    (open: boolean) => {
+      setFilterOpen(open);
+      if (open) {
+        setDraftIncludedStatuses([...includedStatuses]);
+        setDraftIncludedUrgencies([...includedUrgencies]);
+      }
+    },
+    [includedStatuses, includedUrgencies],
+  );
+
+  const toggleDraftStatus = useCallback((s: TaskStatus) => {
+    setDraftIncludedStatuses((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+    );
+  }, []);
+
+  const toggleDraftUrgency = useCallback((u: TaskUrgency) => {
+    setDraftIncludedUrgencies((prev) =>
+      prev.includes(u) ? prev.filter((x) => x !== u) : [...prev, u],
+    );
+  }, []);
+
+  const applyFilter = useCallback(() => {
+    const nextStatus =
+      draftIncludedStatuses.length === TASK_STATUSES.length
+        ? []
+        : [...draftIncludedStatuses];
+    const nextUrgency =
+      draftIncludedUrgencies.length === TASK_URGENCIES.length
+        ? []
+        : [...draftIncludedUrgencies];
+    setIncludedStatuses(nextStatus);
+    setIncludedUrgencies(nextUrgency);
+    setFilterOpen(false);
+  }, [draftIncludedStatuses, draftIncludedUrgencies]);
+
+  const clearFilters = useCallback(() => {
+    setIncludedStatuses([]);
+    setIncludedUrgencies([]);
+    setDraftIncludedStatuses([]);
+    setDraftIncludedUrgencies([]);
+    setFilterOpen(false);
+  }, []);
+
   const cellBase =
     "flex items-center border-b border-r border-zinc-800 px-3 py-1.5 transition-colors focus-within:bg-zinc-900/50";
   const ghostInput =
@@ -376,9 +703,9 @@ export function TaskTrackingTableBlockView({
     <div
       className="group/table my-8 w-full"
       onMouseDown={stopPm}
-      onPointerDownCapture={stopPm}
+      onPointerDownCapture={stopPmCaptureUnlessColumnResize}
     >
-      <div className="mb-3 flex items-center gap-2 px-1">
+      <div className="mb-3 flex min-w-0 items-center justify-between gap-3 px-1">
         <input
           value={titleDraft}
           onChange={(e) => setTitleDraft(e.target.value)}
@@ -389,25 +716,127 @@ export function TaskTrackingTableBlockView({
               (e.target as HTMLInputElement).blur();
             }
           }}
-          className="cursor-pointer rounded px-2 py-1 text-sm font-semibold text-zinc-500 outline-none transition-colors hover:bg-zinc-800/50 focus:cursor-text"
+          className="min-w-0 flex-1 cursor-pointer rounded px-2 py-1 text-sm font-semibold text-zinc-500 outline-none transition-colors hover:bg-zinc-800/50 focus:cursor-text"
           aria-label="Table title"
         />
+        <div className="flex shrink-0 items-center">
+          {filterActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-md bg-sky-500/20 px-2.5 py-1 text-[12px] font-medium text-sky-300 ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/30"
+            >
+              Clear filter
+            </button>
+          ) : (
+            <Popover open={filterOpen} onOpenChange={handleFilterOpenChange} modal>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[12px] font-medium text-zinc-400 transition-colors hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-200"
+                  aria-expanded={filterOpen}
+                  aria-label="Filter tasks"
+                  onMouseDown={stopPm}
+                  onPointerDownCapture={stopPm}
+                >
+                  <Filter className="size-3.5 shrink-0" aria-hidden />
+                  Filter
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                side="bottom"
+                className="w-72 border-zinc-800 p-3"
+                onMouseDown={stopPm}
+                onPointerDownCapture={stopPm}
+              >
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Status
+                </p>
+                <p className="mb-2 text-[11px] text-zinc-600">
+                  Show only rows with these statuses. Leave none checked to ignore
+                  status.
+                </p>
+                <div className="mb-4 flex flex-col gap-1">
+                  {TASK_STATUSES.map((s) => (
+                    <label
+                      key={s}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[13px] text-zinc-300 hover:bg-zinc-900/80"
+                      onMouseDown={stopPm}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-3.5 rounded border-zinc-600 bg-zinc-900 text-sky-500 accent-sky-500"
+                        checked={draftIncludedStatuses.includes(s)}
+                        onChange={() => toggleDraftStatus(s)}
+                      />
+                      <span>{s.replace(/-/g, " ")}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Urgency
+                </p>
+                <p className="mb-2 text-[11px] text-zinc-600">
+                  Show only rows with these urgency levels. Leave none checked to
+                  ignore urgency.
+                </p>
+                <div className="mb-3 flex flex-col gap-1">
+                  {TASK_URGENCIES.map((u) => (
+                    <label
+                      key={u}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[13px] text-zinc-300 hover:bg-zinc-900/80"
+                      onMouseDown={stopPm}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-3.5 rounded border-zinc-600 bg-zinc-900 text-sky-500 accent-sky-500"
+                        checked={draftIncludedUrgencies.includes(u)}
+                        onChange={() => toggleDraftUrgency(u)}
+                      />
+                      <span>{u}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="border-t border-zinc-800 pt-3">
+                  <button
+                    type="button"
+                    className="w-full rounded-md bg-sky-600 py-2 text-[12px] font-medium text-white transition-colors hover:bg-sky-500"
+                    onClick={applyFilter}
+                  >
+                    Apply filter
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-sm border-l border-t border-zinc-800">
+      <div className="overflow-x-auto rounded-sm border-l border-t border-zinc-800">
         <div
           role="table"
-          className="grid min-w-[1000px] w-full [grid-template-columns:40px_220px_1fr_140px_120px_120px_200px_60px]"
+          className="grid w-full"
+          style={{
+            gridTemplateColumns: colWidths.map((w) => `${w}px`).join(" "),
+            minWidth: colWidths.reduce((a, b) => a + b, 0),
+          }}
         >
           <div className="contents bg-zinc-900/30 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-            <div className="border-b border-r border-zinc-800 px-2 py-2" aria-hidden />
-            {["Task", "Description", "Status", "Urgency", "Due Date", "Assignee", "Cal"].map(
-              (h) => (
-                <div key={h} className="border-b border-r border-zinc-800 px-3 py-2">
-                  {h}
-                </div>
-              ),
-            )}
+            {HEADER_LABELS.map((label, colIdx) => (
+              <div
+                key={colIdx}
+                className="relative border-b border-r border-zinc-800 px-2 py-1"
+              >
+                {label ? <span>{label}</span> : <span aria-hidden className="block min-h-[1em]" />}
+                {colIdx < HEADER_LABELS.length - 1 ? (
+                  <TaskColumnResizeHandle
+                    boundaryIndex={colIdx}
+                    onPointerDownResize={onColumnResizePointerDown}
+                  />
+                ) : null}
+              </div>
+            ))}
           </div>
 
           {tasks.length === 0 ? (
@@ -419,19 +848,28 @@ export function TaskTrackingTableBlockView({
                 No tasks yet. Use <span className="text-zinc-400">New</span> below.
               </div>
             </div>
-          ) : null}
-
-          {tasks.map((task) => (
-            <div key={task.id} className="contents group/row hover:bg-zinc-900/40">
-              <div className="flex select-none items-center justify-center gap-1 border-b border-r border-zinc-800">
+          ) : filteredTasks.length === 0 ? (
+            <div className="contents">
+              <div
+                role="row"
+                className="col-span-full border-b border-r border-zinc-800 px-4 py-6 text-center text-sm text-zinc-500"
+              >
+                No tasks match the filter.{" "}
                 <button
                   type="button"
-                  aria-label="Delete task"
-                  className="rounded p-1 text-zinc-600 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover/row:opacity-100"
-                  onClick={() => deleteTask(task.id)}
+                  className="text-sky-400 underline decoration-sky-400/50 underline-offset-2 hover:text-sky-300"
+                  onClick={clearFilters}
                 >
-                  <Trash2 className="size-3" aria-hidden />
+                  Clear filter
                 </button>
+              </div>
+            </div>
+          ) : null}
+
+          {filteredTasks.map((task) => (
+            <div key={task.id} className="contents group/row hover:bg-zinc-900/40">
+              <div className="flex select-none items-center justify-center gap-1 border-b border-r border-zinc-800">
+                <DeleteTaskConfirm onConfirm={() => deleteTask(task.id)} />
               </div>
 
               <div className={cellBase}>
@@ -471,7 +909,7 @@ export function TaskTrackingTableBlockView({
                 </select>
                 <span
                   className={cn(
-                    "whitespace-nowrap rounded-[4px] px-2 py-0.5 text-[11px] font-medium",
+                    "whitespace-nowrap rounded-[3px] px-1.5 py-px text-[10px] font-medium leading-tight",
                     statusBadgeClass(task.status),
                   )}
                 >
@@ -497,20 +935,17 @@ export function TaskTrackingTableBlockView({
               </div>
 
               <div className={cellBase}>
-                <input
-                  type="text"
+                <DueDatePickerCell
                   value={task.dueDate}
-                  placeholder="Empty"
-                  aria-label="Due date"
-                  className={cn(
+                  onChange={(dueDate) => updateTask(task.id, { dueDate })}
+                  ghostInputClass={cn(
                     ghostInput,
-                    "text-[13px] placeholder:opacity-0 group-hover/row:placeholder:opacity-100",
+                    "placeholder:opacity-0 group-hover/row:placeholder:opacity-100",
                   )}
-                  onChange={(e) => updateTask(task.id, { dueDate: e.target.value })}
                 />
               </div>
 
-              <div className={cn(cellBase, "min-w-0 items-stretch py-2")}>
+              <div className={cn(cellBase, "min-w-0 items-stretch")}>
                 <AssigneeCell
                   assigneeUserIds={task.assigneeUserIds}
                   directory={directory}
@@ -532,11 +967,11 @@ export function TaskTrackingTableBlockView({
 
           <button
             type="button"
-            className="col-span-full flex cursor-pointer items-center gap-2 border-b border-r border-zinc-800 px-4 py-2 text-left text-sm text-zinc-500 transition-all hover:bg-zinc-900/60"
+            className="col-span-full flex cursor-pointer items-center gap-2 border-b border-r border-zinc-800 px-3 py-1.5 text-left text-sm text-zinc-500 transition-all hover:bg-zinc-900/60"
             onClick={addTask}
           >
-            <Plus className="size-3.5 shrink-0" aria-hidden />
-            <span className="text-[13px]">New</span>
+            <Plus className="size-3 shrink-0" aria-hidden />
+            <span className="text-[12px]">New</span>
           </button>
         </div>
       </div>
