@@ -16,6 +16,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { CalendarNavSubmenu } from "@/components/calendar/calendar-sidebar-submenu";
 import { GoalsNavSubmenu } from "@/components/goals/goals-sidebar-submenu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,6 @@ type NavEntry = {
   label: string;
   Icon: LucideIcon;
   isActive: (pathname: string) => boolean;
-  children?: Array<{ href: string; label: string; isActive: (pathname: string) => boolean }>;
 };
 
 const NAV_ITEMS: NavEntry[] = [
@@ -66,23 +66,6 @@ const NAV_ITEMS: NavEntry[] = [
     label: "Calendar",
     Icon: Calendar,
     isActive: (pathname) => pathname === "/calendar" || pathname.startsWith("/calendar/"),
-    children: [
-      {
-        href: "/calendar/alpha",
-        label: "Alpha",
-        isActive: (pathname) => pathname === "/calendar/alpha",
-      },
-      {
-        href: "/calendar/bravo",
-        label: "Bravo",
-        isActive: (pathname) => pathname === "/calendar/bravo",
-      },
-      {
-        href: "/calendar/charlie",
-        label: "Charlie",
-        isActive: (pathname) => pathname === "/calendar/charlie",
-      },
-    ],
   },
   {
     href: "/management",
@@ -209,22 +192,6 @@ function ExpandableNavItem({
       </div>
       <div className={cn("mt-1 w-full", !expanded && "hidden")}>{children}</div>
     </div>
-  );
-}
-
-function SubNavItem({ href, label, isActive }: { href: string; label: string; isActive: boolean }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex min-h-9 w-full items-center rounded-md px-3 py-2 pl-10 text-sm transition-colors",
-        isActive
-          ? "bg-zinc-900/70 text-white"
-          : "text-zinc-500 hover:bg-zinc-900/40 hover:text-white",
-      )}
-    >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-    </Link>
   );
 }
 
@@ -367,7 +334,7 @@ export function DocumentSidebar() {
               narrow ? "items-center gap-2" : "gap-1",
             )}
           >
-            {navWithActive.map(({ href, label, Icon, active, children }) => {
+            {navWithActive.map(({ href, label, Icon, active }) => {
               if (narrow) {
                 return (
                   <CollapsedNavIcon key={label} href={href} label={label} Icon={Icon} isActive={active} />
@@ -398,7 +365,7 @@ export function DocumentSidebar() {
                 );
               }
 
-              if (href === "/calendar" && children != null && children.length > 0) {
+              if (href === "/calendar" && !narrow) {
                 return (
                   <ExpandableNavItem
                     key={label}
@@ -417,16 +384,7 @@ export function DocumentSidebar() {
                       setCalendarOpen((v) => !v);
                     }}
                   >
-                    <div className="space-y-1 pr-3">
-                      {children.map((child) => (
-                        <SubNavItem
-                          key={child.href}
-                          href={child.href}
-                          label={child.label}
-                          isActive={child.isActive(pathname)}
-                        />
-                      ))}
-                    </div>
+                    <CalendarNavSubmenu />
                   </ExpandableNavItem>
                 );
               }
