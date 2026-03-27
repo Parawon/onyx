@@ -13,7 +13,7 @@ function slugify(input: string): string {
     .slice(0, 64);
 }
 
-async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
+async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -25,15 +25,8 @@ async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ sub
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-    const userId = identity.subject;
-    const rows = await ctx.db
-      .query("calendarSubPages")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    await requireAuth(ctx);
+    const rows = await ctx.db.query("calendarSubPages").collect();
     const merged = rows.map((n) => ({
       slug: n.slug,
       label: n.label,
@@ -48,18 +41,12 @@ export const listSubPages = query({
 export const getSubPageMeta = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    await requireAuth(ctx);
     const slug = args.slug.trim();
     if (slug.length === 0 || RESERVED_SLUGS.has(slug)) {
       return null;
     }
-    const nav = await ctx.db
-      .query("calendarSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", identity.subject).eq("slug", slug))
-      .first();
+    const nav = await ctx.db.query("calendarSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (!nav) {
       return null;
     }
@@ -73,7 +60,7 @@ export const createSubPage = mutation({
     slug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const rawLabel = args.label.trim();
     if (rawLabel.length === 0) {
       throw new Error("Title is required.");
@@ -86,22 +73,15 @@ export const createSubPage = mutation({
       throw new Error("That URL is reserved.");
     }
 
-    const existing = await ctx.db
-      .query("calendarSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
-      .first();
+    const existing = await ctx.db.query("calendarSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (existing) {
       throw new Error("A calendar with that URL already exists.");
     }
 
-    const navRows = await ctx.db
-      .query("calendarSubPages")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const navRows = await ctx.db.query("calendarSubPages").collect();
     const maxOrder = navRows.reduce((m, r) => Math.max(m, r.order), -1);
 
     await ctx.db.insert("calendarSubPages", {
-      userId,
       slug,
       label: rawLabel,
       order: maxOrder + 1,
@@ -115,28 +95,25 @@ export const createSubPage = mutation({
 export const ensureForGoalsSubPage = mutation({
   args: { slug: v.string(), label: v.string() },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const slug = args.slug.trim();
     const rawLabel = args.label.trim();
     if (slug.length === 0 || rawLabel.length === 0) {
       throw new Error("Slug and label are required.");
     }
-    await upsertCalendarMirrorForGoals(ctx, userId, slug, rawLabel);
+    await upsertCalendarMirrorForGoals(ctx, slug, rawLabel);
   },
 });
 
 export const deleteSubPage = mutation({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const slug = args.slug.trim();
     if (slug.length === 0 || slug === "main" || RESERVED_SLUGS.has(slug)) {
       throw new Error("Invalid calendar page.");
     }
-    const nav = await ctx.db
-      .query("calendarSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
-      .first();
+    const nav = await ctx.db.query("calendarSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (!nav) {
       throw new Error("Calendar page not found.");
     }

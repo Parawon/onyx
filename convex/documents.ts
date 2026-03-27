@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 
-async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
+async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -10,17 +10,17 @@ async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ sub
   return identity.subject;
 }
 
-/** Create a new document. `userId` comes from the signed-in Clerk user. */
+/** Create a new shared document (global workspace). */
 export const create = mutation({
   args: {
     title: v.string(),
     parentDocument: v.optional(v.id("documents")),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAuth(ctx);
     if (args.parentDocument) {
       const parent = await ctx.db.get(args.parentDocument);
-      if (!parent || parent.userId !== userId) {
+      if (!parent) {
         throw new Error("Parent not found");
       }
     }
@@ -40,25 +40,22 @@ export const create = mutation({
 export const archive = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== userId) {
+    if (!doc) {
       throw new Error("Document not found");
     }
     await ctx.db.patch(args.id, { isArchived: true });
   },
 });
 
-/** Load a single document by id (owner only). Returns null if unauthenticated or not found. */
+/** Load a single shared document by id. */
 export const getById = query({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    await requireAuth(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== identity.subject) {
+    if (!doc) {
       return null;
     }
     return doc;
@@ -75,9 +72,9 @@ export const update = mutation({
     parentDocument: v.optional(v.union(v.id("documents"), v.null())),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== userId) {
+    if (!doc) {
       throw new Error("Document not found");
     }
     const { id, title, content, coverImage, isPublished, parentDocument } = args;
@@ -97,7 +94,7 @@ export const update = mutation({
         patch.parentDocument = undefined;
       } else {
         const parent = await ctx.db.get(parentDocument);
-        if (!parent || parent.userId !== userId) {
+        if (!parent) {
           throw new Error("Parent not found");
         }
         patch.parentDocument = parentDocument;
@@ -113,9 +110,9 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const doc = await ctx.db.get(args.id);
-    if (!doc || doc.userId !== userId) {
+    if (!doc) {
       throw new Error("Document not found");
     }
     await ctx.db.delete(args.id);
@@ -123,20 +120,13 @@ export const remove = mutation({
 });
 
 /**
- * All non-archived documents for the current user (for sidebar tree).
- * Not in the original five operations, but required to render the tree.
+ * All non-archived documents in the shared workspace (for sidebar tree).
  */
 export const listForSidebar = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
-    return await ctx.db
-      .query("documents")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
+    await requireAuth(ctx);
+    const all = await ctx.db.query("documents").collect();
+    return all.filter((d) => !d.isArchived);
   },
 });

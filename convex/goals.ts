@@ -21,7 +21,7 @@ function humanizeSlug(slug: string): string {
     .join(" ");
 }
 
-async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
+async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -48,15 +48,9 @@ function findRowForScope<T extends { scope?: string }>(rows: T[], scope: string)
 export const get = query({
   args: { scope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    await requireAuth(ctx);
     const scope = normalizeScope(args.scope);
-    const rows = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .collect();
+    const rows = await ctx.db.query("goalsEditor").collect();
     const row = findRowForScope(rows, scope);
     return {
       _id: row?._id,
@@ -68,12 +62,9 @@ export const get = query({
 export const updateContent = mutation({
   args: { content: v.string(), scope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAuth(ctx);
     const scope = normalizeScope(args.scope);
-    const rows = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const rows = await ctx.db.query("goalsEditor").collect();
     const existing = findRowForScope(rows, scope);
     if (existing) {
       await ctx.db.patch(existing._id, { content: args.content });
@@ -91,21 +82,11 @@ export const updateContent = mutation({
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-    const userId = identity.subject;
+    await requireAuth(ctx);
 
-    const navFromTable = await ctx.db
-      .query("goalsSubPages")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const navFromTable = await ctx.db.query("goalsSubPages").collect();
 
-    const editors = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const editors = await ctx.db.query("goalsEditor").collect();
 
     const navSlugs = new Set(navFromTable.map((n) => n.slug));
 
@@ -144,27 +125,18 @@ export const listSubPages = query({
 export const getSubPageMeta = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    await requireAuth(ctx);
     const slug = args.slug.trim();
     if (slug.length === 0 || RESERVED_SLUGS.has(slug)) {
       return null;
     }
 
-    const nav = await ctx.db
-      .query("goalsSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", identity.subject).eq("slug", slug))
-      .first();
+    const nav = await ctx.db.query("goalsSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (nav) {
       return { slug: nav.slug, label: nav.label };
     }
 
-    const rows = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .collect();
+    const rows = await ctx.db.query("goalsEditor").collect();
     if (findRowForScope(rows, slug)) {
       return { slug, label: humanizeSlug(slug) };
     }
@@ -178,7 +150,7 @@ export const createSubPage = mutation({
     slug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAuth(ctx);
     const rawLabel = args.label.trim();
     if (rawLabel.length === 0) {
       throw new Error("Title is required.");
@@ -191,26 +163,17 @@ export const createSubPage = mutation({
       throw new Error("That URL is reserved.");
     }
 
-    const existingNav = await ctx.db
-      .query("goalsSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
-      .first();
+    const existingNav = await ctx.db.query("goalsSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (existingNav) {
       throw new Error("A page with that URL already exists.");
     }
 
-    const editors = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const editors = await ctx.db.query("goalsEditor").collect();
     if (findRowForScope(editors, slug)) {
       throw new Error("A page with that URL already exists.");
     }
 
-    const navRows = await ctx.db
-      .query("goalsSubPages")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const navRows = await ctx.db.query("goalsSubPages").collect();
     const maxOrder = navRows.reduce((m, r) => Math.max(m, r.order), -1);
 
     await ctx.db.insert("goalsSubPages", {
@@ -226,7 +189,7 @@ export const createSubPage = mutation({
       scope: slug,
     });
 
-    await upsertCalendarMirrorForGoals(ctx, userId, slug, rawLabel);
+    await upsertCalendarMirrorForGoals(ctx, slug, rawLabel);
 
     return { slug };
   },
@@ -235,24 +198,18 @@ export const createSubPage = mutation({
 export const deleteSubPage = mutation({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const slug = args.slug.trim();
     if (slug.length === 0 || slug === "main" || RESERVED_SLUGS.has(slug)) {
       throw new Error("Invalid sub-page.");
     }
 
-    const nav = await ctx.db
-      .query("goalsSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
-      .first();
+    const nav = await ctx.db.query("goalsSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (nav) {
       await ctx.db.delete(nav._id);
     }
 
-    const editors = await ctx.db
-      .query("goalsEditor")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const editors = await ctx.db.query("goalsEditor").collect();
     const editorRow = findRowForScope(editors, slug);
     if (editorRow) {
       await ctx.db.delete(editorRow._id);
@@ -260,7 +217,7 @@ export const deleteSubPage = mutation({
 
     const calendarNav = await ctx.db
       .query("calendarSubPages")
-      .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
       .first();
     if (calendarNav) {
       await ctx.db.delete(calendarNav._id);

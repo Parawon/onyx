@@ -284,6 +284,9 @@ export function DocumentSidebar() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 powered by Onyx
               </p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-400/80">
+                Team view
+              </p>
             </div>
           )}
           <div

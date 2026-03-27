@@ -6,13 +6,12 @@ import type { MutationCtx } from "./_generated/server";
  */
 export async function upsertCalendarMirrorForGoals(
   ctx: MutationCtx,
-  userId: string,
   slug: string,
   rawLabel: string,
 ): Promise<void> {
   const existing = await ctx.db
     .query("calendarSubPages")
-    .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", slug))
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
     .first();
   if (existing) {
     if (existing.label !== rawLabel) {
@@ -21,13 +20,9 @@ export async function upsertCalendarMirrorForGoals(
     return;
   }
 
-  const calendarNav = await ctx.db
-    .query("calendarSubPages")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
+  const calendarNav = await ctx.db.query("calendarSubPages").collect();
   const maxCalOrder = calendarNav.reduce((m, r) => Math.max(m, r.order), -1);
   await ctx.db.insert("calendarSubPages", {
-    userId,
     slug,
     label: rawLabel,
     order: maxCalOrder + 1,

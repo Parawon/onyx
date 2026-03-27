@@ -4,7 +4,7 @@ import { mutation, query } from "./_generated/server";
 
 const MAX_EVENTS_PER_QUERY = 500;
 
-async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
+async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -139,13 +139,13 @@ function extractInCalendarTasksFromGoalsDocument(content: string): ParsedTaskRow
   return merged;
 }
 
-async function resolveGoalLabel(ctx: QueryCtx, userId: string, goalScope: string): Promise<string> {
+async function resolveGoalLabel(ctx: QueryCtx, goalScope: string): Promise<string> {
   if (goalScope === "main") {
     return "Company";
   }
   const nav = await ctx.db
     .query("goalsSubPages")
-    .withIndex("by_user_slug", (q) => q.eq("userId", userId).eq("slug", goalScope))
+    .withIndex("by_slug", (q) => q.eq("slug", goalScope))
     .first();
   if (nav) {
     return nav.label;
@@ -157,32 +157,23 @@ async function resolveGoalLabel(ctx: QueryCtx, userId: string, goalScope: string
 export const getCalendarEvents = query({
   args: { goalScope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-    const userId = identity.subject;
+    await requireAuth(ctx);
     const scopeFilter = args.goalScope !== undefined ? normalizeGoalScope(args.goalScope) : null;
 
     const rows =
       scopeFilter !== null
         ? await ctx.db
             .query("calendarEvents")
-            .withIndex("by_user_and_goalScope", (q) =>
-              q.eq("userId", userId).eq("goalScope", scopeFilter),
-            )
+            .withIndex("by_goalScope", (q) => q.eq("goalScope", scopeFilter))
             .take(MAX_EVENTS_PER_QUERY)
-        : await ctx.db
-            .query("calendarEvents")
-            .withIndex("by_user", (q) => q.eq("userId", userId))
-            .take(MAX_EVENTS_PER_QUERY);
+        : await ctx.db.query("calendarEvents").take(MAX_EVENTS_PER_QUERY);
 
     const labelCache = new Map<string, string>();
     const result = [];
     for (const row of rows) {
       let goalLabel = labelCache.get(row.goalScope);
       if (goalLabel === undefined) {
-        goalLabel = await resolveGoalLabel(ctx, userId, row.goalScope);
+        goalLabel = await resolveGoalLabel(ctx, row.goalScope);
         labelCache.set(row.goalScope, goalLabel);
       }
       result.push({
@@ -214,7 +205,7 @@ export const upsertEvent = mutation({
     assigneeUserIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAuth(ctx);
     const goalScope = normalizeGoalScope(args.goalScope);
     const sourceTaskId = args.sourceTaskId.trim();
     if (sourceTaskId.length === 0) {
@@ -223,8 +214,8 @@ export const upsertEvent = mutation({
 
     const existing = await ctx.db
       .query("calendarEvents")
-      .withIndex("by_user_and_goalScope_and_sourceTaskId", (q) =>
-        q.eq("userId", userId).eq("goalScope", goalScope).eq("sourceTaskId", sourceTaskId),
+      .withIndex("by_goalScope_and_sourceTaskId", (q) =>
+        q.eq("goalScope", goalScope).eq("sourceTaskId", sourceTaskId),
       )
       .first();
 
@@ -255,7 +246,7 @@ export const removeEvent = mutation({
     sourceTaskId: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    await requireAuth(ctx);
     const goalScope = normalizeGoalScope(args.goalScope);
     const sourceTaskId = args.sourceTaskId.trim();
     if (sourceTaskId.length === 0) {
@@ -263,8 +254,8 @@ export const removeEvent = mutation({
     }
     const existing = await ctx.db
       .query("calendarEvents")
-      .withIndex("by_user_and_goalScope_and_sourceTaskId", (q) =>
-        q.eq("userId", userId).eq("goalScope", goalScope).eq("sourceTaskId", sourceTaskId),
+      .withIndex("by_goalScope_and_sourceTaskId", (q) =>
+        q.eq("goalScope", goalScope).eq("sourceTaskId", sourceTaskId),
       )
       .first();
     if (existing) {
@@ -284,14 +275,14 @@ export const syncFromGoalsDocument = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAuth(ctx);
     const goalScope = normalizeGoalScope(args.goalScope);
     const tasks = extractInCalendarTasksFromGoalsDocument(args.content);
     const wantIds = new Set(tasks.map((t) => t.id));
 
     const existing = await ctx.db
       .query("calendarEvents")
-      .withIndex("by_user_and_goalScope", (q) => q.eq("userId", userId).eq("goalScope", goalScope))
+      .withIndex("by_goalScope", (q) => q.eq("goalScope", goalScope))
       .take(MAX_EVENTS_PER_QUERY);
 
     for (const row of existing) {
@@ -314,8 +305,8 @@ export const syncFromGoalsDocument = mutation({
       };
       const row = await ctx.db
         .query("calendarEvents")
-        .withIndex("by_user_and_goalScope_and_sourceTaskId", (q) =>
-          q.eq("userId", userId).eq("goalScope", goalScope).eq("sourceTaskId", t.id),
+        .withIndex("by_goalScope_and_sourceTaskId", (q) =>
+          q.eq("goalScope", goalScope).eq("sourceTaskId", t.id),
         )
         .first();
       if (row) {

@@ -449,11 +449,8 @@ function EventRow({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className={cn("truncate font-medium text-zinc-100", compact ? "text-[11px]" : "text-[13px]")}>
-            {ev.title}
+            {mode === "master" ? `${ev.goalLabel}: ${ev.title}` : ev.title}
           </p>
-          {mode === "master" ? (
-            <p className="mt-0.5 truncate text-[10px] text-zinc-500">{ev.goalLabel}</p>
-          ) : null}
           {ev.description.trim() && !compact ? (
             <p className="mt-1 line-clamp-2 text-[11px] text-zinc-500">{ev.description}</p>
           ) : null}
