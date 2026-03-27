@@ -405,6 +405,8 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
   const { memberships, isLoaded: orgLoaded } = useOrganization({
     memberships: { pageSize: 100, infinite: true, keepPreviousData: true },
   });
+  const roster = useQuery(api.workspaceMembers.listAssignable);
+  const upsertSelf = useMutation(api.workspaceMembers.upsertSelf);
 
   useEffect(() => {
     if (!orgLoaded || !memberships?.hasNextPage || memberships.isFetching) {
@@ -413,8 +415,24 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
     void memberships.fetchNext();
   }, [orgLoaded, memberships]);
 
+  useEffect(() => {
+    if (user) {
+      void upsertSelf({});
+    }
+  }, [user, upsertSelf]);
+
   return useMemo(() => {
     const map = new Map<string, AssigneeProfile>();
+
+    if (roster) {
+      for (const m of roster) {
+        map.set(m.clerkUserId, {
+          imageUrl: m.imageUrl,
+          label: m.label,
+        });
+      }
+    }
+
     if (user?.id) {
       map.set(user.id, {
         imageUrl: user.imageUrl,
@@ -425,6 +443,7 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
           "You",
       });
     }
+
     for (const m of memberships?.data ?? []) {
       const id = m.publicUserData?.userId;
       if (!id || map.has(id)) {
@@ -438,10 +457,10 @@ function useAssigneeDirectory(): Map<string, AssigneeProfile> {
         [pud.firstName, pud.lastName].filter(Boolean).join(" ").trim() ||
         pud.identifier ||
         id;
-      map.set(id, { imageUrl: pud.imageUrl, label });
+      map.set(id, { imageUrl: pud.imageUrl ?? "", label });
     }
     return map;
-  }, [user, memberships?.data]);
+  }, [user, roster, memberships?.data]);
 }
 
 function AssigneeAvatar({

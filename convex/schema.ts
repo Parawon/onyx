@@ -49,6 +49,17 @@ export default defineSchema({
    * Tasks mirrored from Goals BlockNote task-tracking blocks (`inCalendar: true`).
    * `goalScope` is `"main"` or a Goals sub-page slug.
    */
+  /**
+   * Users who have signed in at least once — used for shared assignee pickers (not filtered by org).
+   * `clerkUserId` matches Clerk `user.id` / JWT `sub`.
+   */
+  workspaceMembers: defineTable({
+    clerkUserId: v.string(),
+    name: v.string(),
+    imageUrl: v.optional(v.string()),
+    email: v.optional(v.string()),
+  }).index("by_clerkUserId", ["clerkUserId"]),
+
   calendarEvents: defineTable({
     /** Optional metadata only (no longer used for filtering). */
     userId: v.optional(v.string()),

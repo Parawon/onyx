@@ -33,7 +33,16 @@ export const listSubPages = query({
       order: n.order,
     }));
     merged.sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
-    return merged;
+    const bySlug = new Map<string, { slug: string; label: string; order: number }>();
+    for (const row of merged) {
+      const prev = bySlug.get(row.slug);
+      if (!prev || row.order < prev.order) {
+        bySlug.set(row.slug, row);
+      }
+    }
+    return Array.from(bySlug.values()).sort(
+      (a, b) => a.order - b.order || a.slug.localeCompare(b.slug),
+    );
   },
 });
 

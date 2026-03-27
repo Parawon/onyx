@@ -13,6 +13,7 @@ import type * as calendarEvents from "../calendarEvents.js";
 import type * as calendarShared from "../calendarShared.js";
 import type * as documents from "../documents.js";
 import type * as goals from "../goals.js";
+import type * as workspaceMembers from "../workspaceMembers.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   calendarShared: typeof calendarShared;
   documents: typeof documents;
   goals: typeof goals;
+  workspaceMembers: typeof workspaceMembers;
 }>;
 
 /**
