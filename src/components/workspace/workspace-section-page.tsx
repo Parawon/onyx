@@ -26,9 +26,11 @@ export function WorkspaceSectionPage({
           </div>
         </div>
         <p className="mt-4 max-w-2xl text-lg font-light leading-relaxed text-zinc-400">{description}</p>
-        {children != null && sectionHeading != null && (
+        {children != null && (
           <div className="mt-16">
-            <h3 className="mb-8 text-2xl font-bold tracking-tight text-white">{sectionHeading}</h3>
+            {sectionHeading ? (
+              <h3 className="mb-8 text-2xl font-bold tracking-tight text-white">{sectionHeading}</h3>
+            ) : null}
             {children}
           </div>
         )}

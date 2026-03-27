@@ -9,7 +9,6 @@ export default function HomePage() {
       title={COMPANY_NAME}
       tagline="Strategic overview"
       description="Precision management and architectural oversight for the modern enterprise. Your operational velocity, visualized."
-      sectionHeading="Editor"
     >
       <DashboardHomeContent />
     </WorkspaceSectionPage>

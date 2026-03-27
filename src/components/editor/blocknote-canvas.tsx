@@ -34,6 +34,7 @@ export type BlockNoteCanvasProps = {
 } & (
   | { kind: "document"; documentId: Id<"documents"> }
   | { kind: "goals"; goalsScope: GoalEditorScope }
+  | { kind: "local" }
 );
 
 /** Match BlockNote’s default Link mark, but do not open in a new window on click (TipTap defaults to `window.open(..., "_blank")` on mouseup). */
@@ -82,6 +83,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const { initialContent, kind } = props;
   const documentId = kind === "document" ? props.documentId : undefined;
   const goalsScope = kind === "goals" ? props.goalsScope : undefined;
+  const persistToBackend = kind === "document" || kind === "goals";
   const updateDocument = useMutation(api.documents.update);
   const updateGoalsContent = useMutation(api.goals.updateContent);
   const syncCalendarFromGoalsDoc = useMutation(api.calendarEvents.syncFromGoalsDocument);
@@ -164,6 +166,9 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   }, []);
 
   useEffect(() => {
+    if (!persistToBackend) {
+      return;
+    }
     if (serializedContent === baselineRef.current) {
       return;
     }
@@ -203,6 +208,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
     documentId,
     goalsScope,
     kind,
+    persistToBackend,
     markError,
     markSaved,
     markSaving,
@@ -254,7 +260,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
       onChange={() => {
         const next = JSON.stringify(editor.document);
         setSerializedContent(next);
-        if (next !== baselineRef.current) {
+        if (persistToBackend && next !== baselineRef.current) {
           resetAutosaveUiForEdit();
           setAutosaveVisible(true);
           markSaving();
