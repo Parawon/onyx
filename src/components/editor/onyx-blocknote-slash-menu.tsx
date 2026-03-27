@@ -6,7 +6,7 @@ import {
   getDefaultReactSlashMenuItems,
   type DefaultReactSuggestionItem,
 } from "@blocknote/react";
-import { BarChart2 } from "lucide-react";
+import { BarChart2, TableProperties } from "lucide-react";
 
 /** Slash menu items for the Onyx schema (default BlockNote items + Dual progress). */
 export function createOnyxSlashMenuGetItems(editor: BlockNoteEditor<any, any, any>) {
@@ -29,6 +29,19 @@ export function createOnyxSlashMenuGetItems(editor: BlockNoteEditor<any, any, an
       },
       icon: <BarChart2 className="size-[18px]" aria-hidden />,
     };
-    return filterSuggestionItems([dualProgressItem, ...defaults], query);
+    const taskTrackingItem: DefaultReactSuggestionItem = {
+      title: "Task tracking table",
+      subtext: "Project tasks with status, urgency, owners",
+      group: "Onyx",
+      aliases: ["tasks", "table", "tracker", "project", "okr"],
+      onItemClick: () => {
+        insertOrUpdateBlockForSlashMenu(editor, {
+          type: "taskTrackingTable",
+          props: { title: "Project Tasks", tasksJSON: "[]" },
+        });
+      },
+      icon: <TableProperties className="size-[18px]" aria-hidden />,
+    };
+    return filterSuggestionItems([dualProgressItem, taskTrackingItem, ...defaults], query);
   };
 }
