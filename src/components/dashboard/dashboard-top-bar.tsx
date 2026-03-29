@@ -1,7 +1,5 @@
 "use client";
 
-import { Bell } from "lucide-react";
-
 import { AuthButton } from "@/components/auth/user-button";
 
 export function DashboardTopBar() {
@@ -11,17 +9,8 @@ export function DashboardTopBar() {
         <span className="text-lg font-bold tracking-tight text-white">BuilderLab</span>
       </div>
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="text-zinc-500 transition-colors hover:text-white"
-            aria-label="Notifications"
-          >
-            <Bell className="size-5" />
-          </button>
-          <div className="flex shrink-0 items-center">
-            <AuthButton />
-          </div>
+        <div className="flex shrink-0 items-center">
+          <AuthButton />
         </div>
       </div>
     </header>

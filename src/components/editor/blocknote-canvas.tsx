@@ -31,10 +31,11 @@ export type GoalEditorScope = string;
 
 export type BlockNoteCanvasProps = {
   initialContent: string;
+  editable?: boolean;
 } & (
   | { kind: "document"; documentId: Id<"documents"> }
   | { kind: "goals"; goalsScope: GoalEditorScope }
-  | { kind: "local" }
+  | { kind: "local"; onLocalChange?: (serializedContent: string) => void }
 );
 
 /** Match BlockNote’s default Link mark, but do not open in a new window on click (TipTap defaults to `window.open(..., "_blank")` on mouseup). */
@@ -100,9 +101,10 @@ const NOOP_SAVE_STATE = {
 
 export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
   const router = useRouter();
-  const { initialContent, kind } = props;
+  const { initialContent, kind, editable: editableProp = true } = props;
   const documentId = kind === "document" ? props.documentId : undefined;
   const goalsScope = kind === "goals" ? props.goalsScope : undefined;
+  const onLocalChange = kind === "local" ? props.onLocalChange : undefined;
   const persistToBackend = kind === "document" || kind === "goals";
   const updateDocument = useMutation(api.documents.update);
   const updateGoalsContent = useMutation(api.goals.updateContent);
@@ -297,6 +299,7 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
     <BlockNoteView
       editor={editor}
       theme="dark"
+      editable={editableProp}
       slashMenu={false}
       sideMenu={false}
       onChange={() => {
@@ -309,6 +312,9 @@ export const BlockNoteCanvas = (props: BlockNoteCanvasProps) => {
           resetAutosaveUiForEdit();
           setAutosaveVisible(true);
           markSaving();
+        }
+        if (onLocalChange) {
+          onLocalChange(next);
         }
       }}
     >

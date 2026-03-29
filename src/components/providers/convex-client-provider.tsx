@@ -7,13 +7,13 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api } from "../../../convex/_generated/api";
+import { RoleProvider } from "./role-provider";
 
-/** Syncs Clerk profile into Convex `users` + `workspaceMembers` on every session (assignee roster). */
+/** Syncs Clerk profile into Convex `users` on every session (assignee roster). */
 function WorkspaceMemberSync() {
   const { isAuthenticated, isLoading: convexAuthLoading } = useConvexAuth();
   const { userId, isLoaded: clerkSessionLoaded } = useAuth();
   const { user, isLoaded: userLoaded } = useUser();
-  const upsertSelf = useMutation(api.workspaceMembers.upsertSelf);
   const storeUser = useMutation(api.users.storeUser);
 
   useEffect(() => {
@@ -28,7 +28,6 @@ function WorkspaceMemberSync() {
       return;
     }
     void storeUser({});
-    void upsertSelf({});
   }, [
     userLoaded,
     clerkSessionLoaded,
@@ -37,7 +36,6 @@ function WorkspaceMemberSync() {
     isAuthenticated,
     user,
     storeUser,
-    upsertSelf,
   ]);
 
   return null;
@@ -80,7 +78,9 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
     >
       <ConvexProviderWithClerk client={client} useAuth={useAuth}>
         <WorkspaceMemberSync />
-        {children}
+        <RoleProvider>
+          {children}
+        </RoleProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

@@ -1,23 +1,21 @@
 import { v } from "convex/values";
+import { getAuthInfo, requireRole, type AuthInfo, type Role, ROLE_LEVELS } from "./shared";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 
-async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-  return identity.subject;
+function hasMinRole(info: AuthInfo, min: Role): boolean {
+  const userLevel = ROLE_LEVELS[info.role as Role] ?? 0;
+  return userLevel >= ROLE_LEVELS[min];
 }
 
-/** Create a new shared document (global workspace). */
+/** Create a new document. Team members and above can create. */
 export const create = mutation({
   args: {
     title: v.string(),
     parentDocument: v.optional(v.id("documents")),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
     if (args.parentDocument) {
       const parent = await ctx.db.get(args.parentDocument);
       if (!parent) {
@@ -36,24 +34,30 @@ export const create = mutation({
   },
 });
 
-/** Mark a document as archived. */
+/** Mark a document as archived. Editors+ can archive any; team members can archive their own. */
 export const archive = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Document not found");
+    }
+    if (!hasMinRole(info, "editor") && doc.userId !== userId) {
+      throw new Error("Forbidden: you can only archive your own notes");
     }
     await ctx.db.patch(args.id, { isArchived: true });
   },
 });
 
-/** Load a single shared document by id. */
+/** Load a single document by id. Any role can read. */
 export const getById = query({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
+    const info = await getAuthInfo(ctx);
+    if (!info) {
       return null;
     }
     const doc = await ctx.db.get(args.id);
@@ -64,6 +68,7 @@ export const getById = query({
   },
 });
 
+/** Update a document. Editors+ can update any; team members can only update their own. */
 export const update = mutation({
   args: {
     id: v.id("documents"),
@@ -74,10 +79,15 @@ export const update = mutation({
     parentDocument: v.optional(v.union(v.id("documents"), v.null())),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Document not found");
+    }
+    if (!hasMinRole(info, "editor") && doc.userId !== userId) {
+      throw new Error("Forbidden: you can only edit your own notes");
     }
     const { id, title, content, coverImage, isPublished, parentDocument } = args;
     const patch: {
@@ -108,27 +118,30 @@ export const update = mutation({
   },
 });
 
-/** Permanently delete a document. */
+/** Permanently delete a document. Admins+ can delete any; lower roles can only delete their own. */
 export const remove = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const doc = await ctx.db.get(args.id);
     if (!doc) {
       throw new Error("Document not found");
+    }
+    if (!hasMinRole(info, "admin") && doc.userId !== userId) {
+      throw new Error("Forbidden: you can only delete your own notes");
     }
     await ctx.db.delete(args.id);
   },
 });
 
-/**
- * All non-archived documents in the shared workspace (for sidebar tree).
- * Shared workspace: returns all rows (no per-user filter); `userId` on rows is metadata only.
- */
+/** All non-archived documents (for sidebar tree). Any role can list. */
 export const listForSidebar = query({
   args: {},
   handler: async (ctx) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
+    const info = await getAuthInfo(ctx);
+    if (!info) {
       return [];
     }
     const all = await ctx.db.query("documents").collect();

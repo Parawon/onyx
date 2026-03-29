@@ -8,6 +8,7 @@ import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { CalendarPageHeader } from "@/components/calendar/calendar-page-header";
 import { OnyxCalendar } from "@/components/calendar/onyx-calendar";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 
 function RemoveCalendarButton({ slug }: { slug: string }) {
@@ -51,6 +52,8 @@ export function CalendarSubPage({ slug }: { slug: string }) {
   const decoded = decodeURIComponent(slug);
   const meta = useQuery(api.calendar.getSubPageMeta, { slug: decoded });
   const pageEvents = useQuery(api.calendarEvents.getCalendarEvents, { goalScope: decoded });
+  const { hasRole } = useUserRole();
+  const canDelete = hasRole("admin") || (meta?.isOwn ?? false);
 
   if (meta === undefined) {
     return (
@@ -70,7 +73,7 @@ export function CalendarSubPage({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col bg-background">
-      <CalendarPageHeader suffix={meta.label} right={<RemoveCalendarButton slug={decoded} />} />
+      <CalendarPageHeader suffix={meta.label} right={canDelete ? <RemoveCalendarButton slug={decoded} /> : undefined} />
       <div className="mx-auto w-full max-w-[1400px] px-12 pb-12">
         <section className="mb-8 pt-6">
           <p className="max-w-2xl text-sm leading-relaxed text-zinc-500">

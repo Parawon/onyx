@@ -8,13 +8,15 @@
  * @module
  */
 
+import type * as announcements from "../announcements.js";
 import type * as calendar from "../calendar.js";
 import type * as calendarEvents from "../calendarEvents.js";
 import type * as calendarShared from "../calendarShared.js";
+import type * as dashboardContent from "../dashboardContent.js";
 import type * as documents from "../documents.js";
 import type * as goals from "../goals.js";
+import type * as shared from "../shared.js";
 import type * as users from "../users.js";
-import type * as workspaceMembers from "../workspaceMembers.js";
 
 import type {
   ApiFromModules,
@@ -23,13 +25,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  announcements: typeof announcements;
   calendar: typeof calendar;
   calendarEvents: typeof calendarEvents;
   calendarShared: typeof calendarShared;
+  dashboardContent: typeof dashboardContent;
   documents: typeof documents;
   goals: typeof goals;
+  shared: typeof shared;
   users: typeof users;
-  workspaceMembers: typeof workspaceMembers;
 }>;
 
 /**

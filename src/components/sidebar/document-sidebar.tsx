@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
+  ShieldCheck,
   Target,
   Wallet,
   type LucideIcon,
@@ -18,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { CalendarNavSubmenu } from "@/components/calendar/calendar-sidebar-submenu";
 import { GoalsNavSubmenu } from "@/components/goals/goals-sidebar-submenu";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +58,6 @@ const NAV_ITEMS: NavEntry[] = [
     Icon: FileText,
     isActive: (pathname) =>
       pathname === "/notes" ||
-      pathname === "/documents" ||
       pathname.startsWith("/documents/"),
   },
   {
@@ -71,13 +72,21 @@ const NAV_ITEMS: NavEntry[] = [
     Icon: Briefcase,
     isActive: (pathname) => pathname === "/management",
   },
-  {
-    href: "/finance",
-    label: "Finance",
-    Icon: Wallet,
-    isActive: (pathname) => pathname === "/finance",
-  },
 ];
+
+const FINANCE_NAV: NavEntry = {
+  href: "/finance",
+  label: "Finance",
+  Icon: Wallet,
+  isActive: (pathname) => pathname === "/finance",
+};
+
+const ADMIN_NAV: NavEntry = {
+  href: "/admin",
+  label: "Admin",
+  Icon: ShieldCheck,
+  isActive: (pathname) => pathname === "/admin",
+};
 
 function NavItem({
   href,
@@ -226,17 +235,27 @@ function CollapsedNavIcon({
 
 export function DocumentSidebar() {
   const pathname = usePathname();
+  const { role, hasRole } = useUserRole();
+  const isSuperuser = role === "superuser";
+  const isAdmin = hasRole("admin");
   const [narrow, setNarrow] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  const allNavItems = useMemo(() => {
+    const items = [...NAV_ITEMS];
+    if (isAdmin) items.push(FINANCE_NAV);
+    if (isSuperuser) items.push(ADMIN_NAV);
+    return items;
+  }, [isAdmin, isSuperuser]);
+
   const navWithActive = useMemo(
     () =>
-      NAV_ITEMS.map((item) => ({
+      allNavItems.map((item) => ({
         ...item,
         active: item.isActive(pathname),
       })),
-    [pathname],
+    [allNavItems, pathname],
   );
 
   const isInGoals = pathname === "/goals" || pathname.startsWith("/goals/");

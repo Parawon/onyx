@@ -8,6 +8,7 @@ import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { GoalsEditorSection } from "@/components/editor/goals-editor-section";
 import { GoalsPageHeader } from "@/components/goals/goals-page-header";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 
 function DeleteSubPageButton({ slug }: { slug: string }) {
@@ -50,6 +51,8 @@ function DeleteSubPageButton({ slug }: { slug: string }) {
 export function GoalsSubPage({ slug }: { slug: string }) {
   const decoded = decodeURIComponent(slug);
   const meta = useQuery(api.goals.getSubPageMeta, { slug: decoded });
+  const { hasRole } = useUserRole();
+  const canDelete = hasRole("admin") || (meta?.isOwn ?? false);
 
   if (meta === undefined) {
     return (
@@ -69,7 +72,7 @@ export function GoalsSubPage({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col bg-background">
-      <GoalsPageHeader suffix={meta.label} right={<DeleteSubPageButton slug={decoded} />} />
+      <GoalsPageHeader suffix={meta.label} right={canDelete ? <DeleteSubPageButton slug={decoded} /> : undefined} />
       <div className="w-full">
         <GoalsEditorSection scope={decoded} />
       </div>

@@ -1,20 +1,25 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 
 import { api } from "@convex/_generated/api";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function GoalsNavSubmenu() {
   const pathname = usePathname();
   const router = useRouter();
+  const { hasRole, role } = useUserRole();
+  const canCreateShared = hasRole("admin");
+  const isTeamMember = role === "team_member";
   const subPages = useQuery(api.goals.listSubPages);
   const createSubPage = useMutation(api.goals.createSubPage);
+  const createPersonalPage = useMutation(api.goals.createPersonalGoalsPage);
   const ensureCalendarForGoals = useMutation(api.calendar.ensureForGoalsSubPage);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -22,6 +27,8 @@ export function GoalsNavSubmenu() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const hasPersonalPage = subPages?.some((p) => p.isOwn) ?? false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +54,18 @@ export function GoalsNavSubmenu() {
     }
   };
 
+  const handleCreatePersonal = async () => {
+    setSubmitting(true);
+    try {
+      const { slug } = await createPersonalPage();
+      router.push(`/goals/${slug}`);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Could not create personal Goals page.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-1 pr-3">
@@ -64,22 +83,38 @@ export function GoalsNavSubmenu() {
                   : "text-zinc-500 hover:bg-zinc-900/40 hover:text-white",
               )}
             >
+              {p.isPersonal && (
+                <User className="mr-1.5 size-3.5 shrink-0 text-sky-400/70" aria-hidden />
+              )}
               <span className="min-w-0 flex-1 truncate">{p.label}</span>
             </Link>
           ))
         )}
-        <button
-          type="button"
-          onClick={() => {
-            setDialogOpen(true);
-            setError(null);
-          }}
-          disabled={!subPages}
-          className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 pl-10 text-sm text-zinc-500 transition-colors hover:bg-zinc-900/40 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="size-4 shrink-0" aria-hidden />
-          <span>Add sub-page</span>
-        </button>
+        {canCreateShared && (
+          <button
+            type="button"
+            onClick={() => {
+              setDialogOpen(true);
+              setError(null);
+            }}
+            disabled={!subPages}
+            className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 pl-10 text-sm text-zinc-500 transition-colors hover:bg-zinc-900/40 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="size-4 shrink-0" aria-hidden />
+            <span>Add sub-page</span>
+          </button>
+        )}
+        {isTeamMember && !hasPersonalPage && (
+          <button
+            type="button"
+            onClick={() => void handleCreatePersonal()}
+            disabled={submitting || !subPages}
+            className="flex min-h-9 w-full items-center gap-2 rounded-md px-3 py-2 pl-10 text-sm text-zinc-500 transition-colors hover:bg-zinc-900/40 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <User className="size-4 shrink-0" aria-hidden />
+            <span>{submitting ? "Creating…" : "My Goals"}</span>
+          </button>
+        )}
       </div>
 
       {dialogOpen && (

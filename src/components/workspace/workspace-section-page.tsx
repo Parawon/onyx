@@ -9,7 +9,7 @@ export function WorkspaceSectionPage({
 }: {
   title: string;
   tagline: string;
-  description: string;
+  description: React.ReactNode;
   sectionHeading?: string;
   children?: React.ReactNode;
 }) {
@@ -25,7 +25,9 @@ export function WorkspaceSectionPage({
             <p className="text-sm font-medium uppercase tracking-[0.3em] text-sky-400">{tagline}</p>
           </div>
         </div>
-        <p className="mt-4 max-w-2xl text-lg font-light leading-relaxed text-zinc-400">{description}</p>
+        <div className="mt-4 max-w-2xl">{typeof description === "string" ? (
+          <p className="text-lg font-light leading-relaxed text-zinc-400">{description}</p>
+        ) : description}</div>
         {children != null && (
           <div className="mt-16">
             {sectionHeading ? (

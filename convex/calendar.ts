@@ -1,44 +1,41 @@
 import { v } from "convex/values";
 import { upsertCalendarMirrorForGoals } from "./calendarShared";
+import {
+  canSeeOwned,
+  getAuthInfo,
+  requireRole,
+  RESERVED_SLUGS,
+  slugify,
+  type AuthInfo,
+  type Role,
+  ROLE_LEVELS,
+} from "./shared";
 import { mutation, query } from "./_generated/server";
 
-const RESERVED_SLUGS = new Set(["main", "new", "api", "settings", "admin"]);
-
-function slugify(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
+function hasMinRole(info: AuthInfo, min: Role): boolean {
+  const userLevel = ROLE_LEVELS[info.role as Role] ?? 0;
+  return userLevel >= ROLE_LEVELS[min];
 }
 
-async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-  return identity.subject;
-}
-
-/**
- * Sidebar entries for `/calendar/[slug]` only — independent of Goals.
- * Shared workspace: returns all rows (no per-user filter); `userId` on rows is metadata only.
- */
+/** Sidebar entries for `/calendar/[slug]`. Ownership-filtered. */
 export const listSubPages = query({
   args: {},
   handler: async (ctx) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
+    const info = await getAuthInfo(ctx);
+    if (!info) {
       return [];
     }
     const rows = await ctx.db.query("calendarSubPages").collect();
-    const merged = rows.map((n) => ({
+    const visible = rows.filter((r) => canSeeOwned(r.ownerUserId, info.subject, info.role));
+    const merged = visible.map((n) => ({
       slug: n.slug,
       label: n.label,
       order: n.order,
+      isPersonal: !!n.ownerUserId,
+      isOwn: n.ownerUserId === info.subject,
     }));
     merged.sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
-    const bySlug = new Map<string, { slug: string; label: string; order: number }>();
+    const bySlug = new Map<string, (typeof merged)[number]>();
     for (const row of merged) {
       const prev = bySlug.get(row.slug);
       if (!prev || row.order < prev.order) {
@@ -51,11 +48,12 @@ export const listSubPages = query({
   },
 });
 
-/** Title + existence check for `/calendar/[slug]`. */
+/** Title + existence check for `/calendar/[slug]`. Ownership-filtered. */
 export const getSubPageMeta = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
+    const info = await getAuthInfo(ctx);
+    if (!info) {
       return null;
     }
     const slug = args.slug.trim();
@@ -66,17 +64,21 @@ export const getSubPageMeta = query({
     if (!nav) {
       return null;
     }
-    return { slug: nav.slug, label: nav.label };
+    if (!canSeeOwned(nav.ownerUserId, info.subject, info.role)) {
+      return null;
+    }
+    return { slug: nav.slug, label: nav.label, isPersonal: !!nav.ownerUserId, isOwn: nav.ownerUserId === info.subject };
   },
 });
 
+/** Create a shared calendar sub-page. Admins+ only. */
 export const createSubPage = mutation({
   args: {
     label: v.string(),
     slug: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireRole(ctx, "admin");
     const rawLabel = args.label.trim();
     if (rawLabel.length === 0) {
       throw new Error("Title is required.");
@@ -107,11 +109,11 @@ export const createSubPage = mutation({
   },
 });
 
-/** Idempotent: ensures a calendar sidebar row exists for a Goals sub-page (same slug + label). Call after `goals.createSubPage` if needed. */
+/** Idempotent: ensures a calendar sidebar row exists for a Goals sub-page. */
 export const ensureForGoalsSubPage = mutation({
   args: { slug: v.string(), label: v.string() },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireRole(ctx, "admin");
     const slug = args.slug.trim();
     const rawLabel = args.label.trim();
     if (slug.length === 0 || rawLabel.length === 0) {
@@ -121,10 +123,13 @@ export const ensureForGoalsSubPage = mutation({
   },
 });
 
+/** Delete a calendar sub-page. Admins+ for shared; owner for personal. */
 export const deleteSubPage = mutation({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const slug = args.slug.trim();
     if (slug.length === 0 || slug === "main" || RESERVED_SLUGS.has(slug)) {
       throw new Error("Invalid calendar page.");
@@ -132,6 +137,13 @@ export const deleteSubPage = mutation({
     const nav = await ctx.db.query("calendarSubPages").withIndex("by_slug", (q) => q.eq("slug", slug)).first();
     if (!nav) {
       throw new Error("Calendar page not found.");
+    }
+    if (nav.ownerUserId) {
+      if (nav.ownerUserId !== info.subject && info.role !== "superuser") {
+        throw new Error("Forbidden: not your personal calendar");
+      }
+    } else if (!hasMinRole(info, "admin")) {
+      throw new Error("Forbidden: insufficient permissions");
     }
     await ctx.db.delete(nav._id);
   },

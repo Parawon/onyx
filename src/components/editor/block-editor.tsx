@@ -10,6 +10,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 import { EditorSaveStatusIndicator } from "./editor-save-status-indicator";
 import { EditorSaveStateProvider } from "./editor-save-state-provider";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 
 const BlockNoteCanvas = dynamic(
@@ -24,10 +25,16 @@ type BlockEditorProps = {
 type EditorHeaderProps = {
   documentId: Id<"documents">;
   title: string;
+  /** Clerk user id of the document creator. */
+  docOwnerUserId?: string;
 };
 
-const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
+const EditorHeader = ({ documentId, title, docOwnerUserId }: EditorHeaderProps) => {
   const router = useRouter();
+  const { hasRole, isOwner } = useUserRole();
+  const isDocOwner = isOwner(docOwnerUserId);
+  const canEdit = hasRole("editor") || isDocOwner;
+  const canDelete = hasRole("admin") || isDocOwner;
   const updateDocument = useMutation(api.documents.update);
   const removeDocument = useMutation(api.documents.remove);
   const [titleDraft, setTitleDraft] = useState(title);
@@ -84,32 +91,39 @@ const EditorHeader = ({ documentId, title }: EditorHeaderProps) => {
           }
         }}
         placeholder="Untitled"
+        readOnly={!canEdit}
         className="w-full max-w-xl rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-700 focus:bg-transparent"
       />
       <div className="flex items-center gap-2">
         <div className="text-xs text-zinc-400">
           <EditorSaveStatusIndicator />
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-red-400 hover:text-red-300"
-          disabled={isDeleting}
-          onClick={() => void handleDelete()}
-        >
-          <Trash2 className="size-4" />
-          {isDeleting ? "Deleting..." : "Delete"}
-        </Button>
+        {canDelete && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-300"
+            disabled={isDeleting}
+            onClick={() => void handleDelete()}
+          >
+            <Trash2 className="size-4" />
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 export const BlockEditor = ({ documentId }: BlockEditorProps) => {
+  const { hasRole, isOwner } = useUserRole();
   const document = useQuery(api.documents.getById, {
     id: documentId as Id<"documents">,
   });
+
+  const isDocOwner = isOwner(document?.userId);
+  const canEdit = hasRole("editor") || isDocOwner;
 
   if (document === undefined) {
     return (
@@ -130,7 +144,7 @@ export const BlockEditor = ({ documentId }: BlockEditorProps) => {
   return (
     <EditorSaveStateProvider>
       <div className="flex min-h-0 flex-1 flex-col bg-background px-6 pb-6 pt-4">
-        <EditorHeader documentId={document._id} title={document.title} />
+        <EditorHeader documentId={document._id} title={document.title} docOwnerUserId={document.userId} />
         <div className="relative min-h-0 flex-1">
           <div className="min-h-full w-full pb-40">
             <BlockNoteCanvas
@@ -138,6 +152,7 @@ export const BlockEditor = ({ documentId }: BlockEditorProps) => {
               kind="document"
               documentId={document._id}
               initialContent={document.content}
+              editable={canEdit}
             />
           </div>
         </div>

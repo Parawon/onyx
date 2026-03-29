@@ -17,64 +17,51 @@ export default defineSchema({
 
   /** Per-user BlockNote payload for Goals (main + sub-pages). `scope` "main" or a sub-page slug; legacy rows omit `scope` and count as "main". */
   goalsEditor: defineTable({
-    /** Optional metadata only (no longer used for filtering). */
     userId: v.optional(v.string()),
     content: v.string(),
     scope: v.optional(v.string()),
+    /** When set, this content belongs to a specific user (personal page). */
+    ownerUserId: v.optional(v.string()),
   }).index("by_scope", ["scope"]),
 
   /** Sidebar order + labels for Goals sub-pages (URLs `/goals/[slug]`). */
   goalsSubPages: defineTable({
-    /** Optional metadata only (no longer used for filtering). */
     userId: v.optional(v.string()),
     slug: v.string(),
     label: v.string(),
     order: v.number(),
+    /** When set, this sub-page is personal — only visible to the owner and superuser. */
+    ownerUserId: v.optional(v.string()),
   })
     .index("by_slug", ["slug"])
     .index("by_order", ["order"]),
 
   /** Sidebar order + labels for Calendar sub-pages only (`/calendar/[slug]`). Does not create Goals content. */
   calendarSubPages: defineTable({
-    /** Optional metadata only (no longer used for filtering). */
     userId: v.optional(v.string()),
     slug: v.string(),
     label: v.string(),
     order: v.number(),
+    /** When set, this calendar is personal — only visible to the owner and superuser. */
+    ownerUserId: v.optional(v.string()),
   })
     .index("by_slug", ["slug"])
     .index("by_order", ["order"]),
 
-  /**
-   * Tasks mirrored from Goals BlockNote task-tracking blocks (`inCalendar: true`).
-   * `goalScope` is `"main"` or a Goals sub-page slug.
-   */
-  /**
-   * Clerk users synced on sign-in (`users.storeUser`). `subject` is JWT `sub` (Clerk user id), matches task assignee ids.
-   */
+  /** Clerk users synced on sign-in (`users.storeUser`). `subject` is JWT `sub` (Clerk user id), matches task assignee ids. */
   users: defineTable({
     tokenIdentifier: v.string(),
     subject: v.string(),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     pictureUrl: v.optional(v.string()),
+    role: v.optional(v.string()),
   })
     .index("by_token", ["tokenIdentifier"])
     .index("by_subject", ["subject"]),
 
-  /**
-   * Users who have signed in at least once — used for shared assignee pickers (not filtered by org).
-   * `clerkUserId` matches Clerk `user.id` / JWT `sub`.
-   */
-  workspaceMembers: defineTable({
-    clerkUserId: v.string(),
-    name: v.string(),
-    imageUrl: v.optional(v.string()),
-    email: v.optional(v.string()),
-  }).index("by_clerkUserId", ["clerkUserId"]),
-
+  /** Tasks mirrored from Goals BlockNote task-tracking blocks (`inCalendar: true`). `goalScope` is `"main"` or a Goals sub-page slug. */
   calendarEvents: defineTable({
-    /** Optional metadata only (no longer used for filtering). */
     userId: v.optional(v.string()),
     goalScope: v.string(),
     sourceTaskId: v.string(),
@@ -84,7 +71,25 @@ export default defineSchema({
     status: v.string(),
     urgency: v.string(),
     assigneeUserIds: v.array(v.string()),
+    /** When set, this event belongs to a personal goals page. */
+    ownerUserId: v.optional(v.string()),
   })
     .index("by_goalScope", ["goalScope"])
     .index("by_goalScope_and_sourceTaskId", ["goalScope", "sourceTaskId"]),
+
+  /** Admin-created announcements shown on the dashboard. */
+  announcements: defineTable({
+    authorUserId: v.string(),
+    /** JSON string (BlockNote rich-text payload). */
+    content: v.string(),
+    title: v.string(),
+    createdAt: v.number(),
+  }).index("by_createdAt", ["createdAt"]),
+
+  /** Singleton editable rich-text blocks on the dashboard (e.g. description). `key` is a unique identifier. */
+  dashboardContent: defineTable({
+    key: v.string(),
+    /** JSON string (BlockNote rich-text payload). */
+    content: v.string(),
+  }).index("by_key", ["key"]),
 });

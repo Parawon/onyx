@@ -7,10 +7,13 @@ import { useState } from "react";
 
 import { api } from "@convex/_generated/api";
 import { DocumentsIndex } from "@/components/documents/documents-index";
+import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 
 export default function NotesPage() {
   const router = useRouter();
+  const { hasRole } = useUserRole();
+  const canCreate = hasRole("team_member");
   const createDocument = useMutation(api.documents.create);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -47,17 +50,19 @@ export default function NotesPage() {
             <h2 className="text-[3.5rem] font-extrabold leading-[0.9] tracking-tighter text-white">
               Notes
             </h2>
-            <Button
-              type="button"
-              onClick={() => {
-                setDialogOpen(true);
-                setError(null);
-              }}
-              className="mt-1 inline-flex items-center gap-2"
-            >
-              <Plus className="size-4" aria-hidden />
-              New note
-            </Button>
+            {canCreate && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setDialogOpen(true);
+                  setError(null);
+                }}
+                className="mt-1 inline-flex items-center gap-2"
+              >
+                <Plus className="size-4" aria-hidden />
+                New note
+              </Button>
+            )}
           </div>
           <div className="mb-8 mt-12 border-t border-zinc-800 pt-8">
             <div className="flex items-center gap-4">

@@ -181,7 +181,7 @@ export function TaskNameField({
   "aria-label": ariaLabel,
 }: {
   value: string;
-  onChange: (next: string) => void;
+  onChange?: (next: string) => void;
   suggestions?: TaskNameSuggestionTarget[];
   className?: string;
   inputClassName?: string;
@@ -238,7 +238,7 @@ export function TaskNameField({
       const linkText = `[${target.label}](${target.href})`;
       const next = `${value.slice(0, activeToken.start)}${linkText} ${value.slice(activeToken.end)}`;
       const nextCaret = activeToken.start + linkText.length + 1;
-      onChange(next);
+      onChange?.(next);
       requestAnimationFrame(() => {
         const input = inputRef.current;
         if (!input) {
@@ -262,7 +262,8 @@ export function TaskNameField({
           value={value}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          onChange={(e) => onChange(e.target.value)}
+          readOnly={!onChange}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
           onClick={(e) => setCaretPos((e.target as HTMLInputElement).selectionStart)}
           onKeyUp={(e) => setCaretPos((e.target as HTMLInputElement).selectionStart)}
           onBlur={() => setFocused(false)}

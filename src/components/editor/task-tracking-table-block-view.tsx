@@ -17,6 +17,7 @@ import {
 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useUserRole } from "@/components/providers/role-provider";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 
@@ -100,7 +101,7 @@ function DueDatePickerCell({
   ghostInputClass,
 }: {
   value: string;
-  onChange: (next: string) => void;
+  onChange?: (next: string) => void;
   ghostInputClass: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -113,14 +114,17 @@ function DueDatePickerCell({
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(selected);
   }, [selected]);
 
+  const readOnly = !onChange;
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={!readOnly && open} onOpenChange={readOnly ? undefined : setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={readOnly}
           className={cn(
             ghostInputClass,
-            "w-full cursor-pointer text-left text-[13px] hover:text-zinc-200",
+            "w-full text-left text-[13px]",
+            readOnly ? "cursor-default" : "cursor-pointer hover:text-zinc-200",
             !selected && "text-zinc-500 placeholder:text-zinc-700",
           )}
           onMouseDown={stopPm}
@@ -150,7 +154,7 @@ function DueDatePickerCell({
           selected={selected}
           defaultMonth={selected ?? new Date()}
           onSelect={(d) => {
-            onChange(d ? formatDueDateStorage(d) : "");
+            onChange?.(d ? formatDueDateStorage(d) : "");
             setOpen(false);
           }}
           autoFocus
@@ -160,7 +164,7 @@ function DueDatePickerCell({
             type="button"
             className="w-full rounded-md px-2 py-1.5 text-left text-[12px] text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-300"
             onClick={() => {
-              onChange("");
+              onChange?.("");
               setOpen(false);
             }}
           >
@@ -265,15 +269,20 @@ function TaskStatusPopoverCell({
   onSelect,
 }: {
   status: TaskStatus;
-  onSelect: (s: TaskStatus) => void;
+  onSelect?: (s: TaskStatus) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const readOnly = !onSelect;
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={!readOnly && open} onOpenChange={readOnly ? undefined : setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-full min-h-9 w-full items-center px-3 py-1.5 outline-none transition-colors hover:bg-zinc-800/50"
+          disabled={readOnly}
+          className={cn(
+            "flex h-full min-h-9 w-full items-center px-3 py-1.5 outline-none transition-colors",
+            readOnly ? "cursor-default" : "hover:bg-zinc-800/50",
+          )}
           aria-label="Status"
           aria-expanded={open}
           onMouseDown={stopPm}
@@ -308,7 +317,7 @@ function TaskStatusPopoverCell({
               onMouseDown={stopPm}
               onPointerDownCapture={stopPm}
               onClick={() => {
-                onSelect(s);
+                onSelect?.(s);
                 setOpen(false);
               }}
             >
@@ -333,15 +342,20 @@ function TaskUrgencyPopoverCell({
   onSelect,
 }: {
   urgency: TaskUrgency;
-  onSelect: (u: TaskUrgency) => void;
+  onSelect?: (u: TaskUrgency) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const readOnly = !onSelect;
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={!readOnly && open} onOpenChange={readOnly ? undefined : setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="h-full min-h-9 w-full px-3 py-1.5 text-left text-[13px] capitalize text-zinc-400 outline-none transition-colors hover:text-zinc-200"
+          disabled={readOnly}
+          className={cn(
+            "h-full min-h-9 w-full px-3 py-1.5 text-left text-[13px] capitalize text-zinc-400 outline-none transition-colors",
+            readOnly ? "cursor-default" : "hover:text-zinc-200",
+          )}
           aria-label="Urgency"
           aria-expanded={open}
           onMouseDown={stopPm}
@@ -366,7 +380,7 @@ function TaskUrgencyPopoverCell({
               onMouseDown={stopPm}
               onPointerDownCapture={stopPm}
               onClick={() => {
-                onSelect(u);
+                onSelect?.(u);
                 setOpen(false);
               }}
             >
@@ -463,7 +477,7 @@ function AssigneeAvatar({
 }: {
   userId: string;
   profile: AssigneeProfile | undefined;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   const [broken, setBroken] = useState(false);
 
@@ -485,18 +499,20 @@ function AssigneeAvatar({
           {initials(profile?.label, userId)}
         </div>
       )}
-      <button
-        type="button"
-        className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 opacity-0 shadow ring-1 ring-zinc-600 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover/ava:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        title={`Remove ${profile?.label ?? "assignee"}`}
-        aria-label={`Remove ${profile?.label ?? "assignee"}`}
-      >
-        <X className="size-2.5" strokeWidth={2.5} />
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 opacity-0 shadow ring-1 ring-zinc-600 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover/ava:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          title={`Remove ${profile?.label ?? "assignee"}`}
+          aria-label={`Remove ${profile?.label ?? "assignee"}`}
+        >
+          <X className="size-2.5" strokeWidth={2.5} />
+        </button>
+      )}
     </div>
   );
 }
@@ -508,7 +524,7 @@ function AssigneeCell({
 }: {
   assigneeUserIds: string[];
   directory: Map<string, AssigneeProfile>;
-  onChange: (ids: string[]) => void;
+  onChange?: (ids: string[]) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -537,9 +553,11 @@ function AssigneeCell({
     return [...directory.entries()].filter(([id]) => !assigned.has(id));
   }, [directory, assigneeUserIds]);
 
+  const readOnly = !onChange;
+
   const remove = useCallback(
     (id: string) => {
-      onChange(assigneeUserIds.filter((x) => x !== id));
+      onChange?.(assigneeUserIds.filter((x) => x !== id));
     },
     [assigneeUserIds, onChange],
   );
@@ -549,7 +567,7 @@ function AssigneeCell({
       if (assigneeUserIds.includes(id)) {
         return;
       }
-      onChange([...assigneeUserIds, id]);
+      onChange?.([...assigneeUserIds, id]);
     },
     [assigneeUserIds, onChange],
   );
@@ -569,7 +587,7 @@ function AssigneeCell({
               key={id}
               userId={id}
               profile={directory.get(id)}
-              onRemove={() => remove(id)}
+              onRemove={readOnly ? undefined : () => remove(id)}
             />
           ))}
         </div>
@@ -600,7 +618,7 @@ function AssigneeCell({
                       <AssigneeAvatar
                         userId={id}
                         profile={p}
-                        onRemove={() => remove(id)}
+                        onRemove={readOnly ? undefined : () => remove(id)}
                       />
                       <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">
                         {p?.label ?? id}
@@ -614,7 +632,7 @@ function AssigneeCell({
         ) : null}
       </div>
 
-      {addableOptions.length === 0 ? (
+      {readOnly ? null : addableOptions.length === 0 ? (
         <span className="shrink-0 text-[11px] text-zinc-600" aria-hidden>
           —
         </span>
@@ -707,9 +725,14 @@ export function TaskTrackingTableBlockView({
   editor,
   goalsScope,
 }: TaskTrackingTableBlockViewProps) {
+  const { hasRole } = useUserRole();
   const directory = useAssigneeDirectory();
   const notes = useQuery(api.documents.listForSidebar);
   const goalsSubPages = useQuery(api.goals.listSubPages);
+  const isOwnPersonalGoals = goalsScope
+    ? goalsSubPages?.some((p) => p.slug === goalsScope && p.isOwn) ?? false
+    : false;
+  const canEdit = hasRole("editor") || isOwnPersonalGoals;
   const tasks = useMemo(() => parseTasksJSON(tasksJSON), [tasksJSON]);
   const tasksRef = useRef(tasks);
   useEffect(() => {
@@ -1010,6 +1033,7 @@ export function TaskTrackingTableBlockView({
               (e.target as HTMLInputElement).blur();
             }
           }}
+          readOnly={!canEdit}
           className="min-w-0 flex-1 cursor-pointer rounded px-2 py-1 text-sm font-semibold text-zinc-500 outline-none transition-colors hover:bg-zinc-800/50 focus:cursor-text"
           aria-label="Table title"
         />
@@ -1122,7 +1146,7 @@ export function TaskTrackingTableBlockView({
                 className="group/header relative border-b border-r border-zinc-800 px-2 py-1"
               >
                 {label ? <span>{label}</span> : <span aria-hidden className="block min-h-[1em]" />}
-                {colIdx < HEADER_LABELS.length - 1 ? (
+                {canEdit && colIdx < HEADER_LABELS.length - 1 ? (
                   <TaskColumnResizeHandle
                     boundaryIndex={colIdx}
                     onResizeMouseDown={onColumnResizeMouseDown}
@@ -1162,13 +1186,13 @@ export function TaskTrackingTableBlockView({
           {filteredTasks.map((task) => (
             <div key={task.id} className="contents group/row hover:bg-zinc-900/40">
               <div className="flex min-w-0 select-none items-center justify-center gap-1 border-b border-r border-zinc-800">
-                <DeleteTaskConfirm onConfirm={() => deleteTask(task.id)} />
+                {canEdit ? <DeleteTaskConfirm onConfirm={() => deleteTask(task.id)} /> : null}
               </div>
 
               <div className={cellBase}>
                 <TaskNameField
                   value={task.name}
-                  onChange={(name) => updateTask(task.id, { name })}
+                  onChange={canEdit ? (name) => updateTask(task.id, { name }) : undefined}
                   suggestions={taskNameSuggestions}
                   className="font-medium text-white"
                   inputClassName={cn(ghostInput, "font-medium text-white")}
@@ -1183,28 +1207,29 @@ export function TaskTrackingTableBlockView({
                   value={task.description}
                   placeholder="Add description…"
                   aria-label="Description"
-                  onChange={(e) => updateTask(task.id, { description: e.target.value })}
+                  readOnly={!canEdit}
+                  onChange={canEdit ? (e) => updateTask(task.id, { description: e.target.value }) : undefined}
                 />
               </div>
 
               <div className={cn(cellBase, "relative p-0")} data-task-table-dropdown="">
                 <TaskStatusPopoverCell
                   status={task.status}
-                  onSelect={(s) => updateTask(task.id, { status: s })}
+                  onSelect={canEdit ? (s) => updateTask(task.id, { status: s }) : undefined}
                 />
               </div>
 
               <div className={cn(cellBase, "p-0")} data-task-table-dropdown="">
                 <TaskUrgencyPopoverCell
                   urgency={task.urgency}
-                  onSelect={(u) => updateTask(task.id, { urgency: u })}
+                  onSelect={canEdit ? (u) => updateTask(task.id, { urgency: u }) : undefined}
                 />
               </div>
 
               <div className={cellBase}>
                 <DueDatePickerCell
                   value={task.dueDate}
-                  onChange={(dueDate) => updateTask(task.id, { dueDate })}
+                  onChange={canEdit ? (dueDate) => updateTask(task.id, { dueDate }) : undefined}
                   ghostInputClass={cn(
                     ghostInput,
                     "placeholder:opacity-0 group-hover/row:placeholder:opacity-100",
@@ -1216,7 +1241,7 @@ export function TaskTrackingTableBlockView({
                 <AssigneeCell
                   assigneeUserIds={task.assigneeUserIds}
                   directory={directory}
-                  onChange={(ids) => updateTask(task.id, { assigneeUserIds: ids })}
+                  onChange={canEdit ? (ids) => updateTask(task.id, { assigneeUserIds: ids }) : undefined}
                 />
               </div>
 
@@ -1225,21 +1250,24 @@ export function TaskTrackingTableBlockView({
                   type="checkbox"
                   checked={task.inCalendar}
                   aria-label="In calendar"
-                  className="size-3.5 cursor-pointer rounded-[3px] border-zinc-700 bg-zinc-900 accent-zinc-500 transition-all"
-                  onChange={(e) => updateTask(task.id, { inCalendar: e.target.checked })}
+                  disabled={!canEdit}
+                  className="size-3.5 cursor-pointer rounded-[3px] border-zinc-700 bg-zinc-900 accent-zinc-500 transition-all disabled:cursor-default disabled:opacity-50"
+                  onChange={canEdit ? (e) => updateTask(task.id, { inCalendar: e.target.checked }) : undefined}
                 />
               </div>
             </div>
           ))}
 
-          <button
-            type="button"
-            className="col-span-full flex cursor-pointer items-center gap-2 border-b border-r border-zinc-800 px-3 py-1.5 text-left text-sm text-zinc-500 transition-all hover:bg-zinc-900/60"
-            onClick={addTask}
-          >
-            <Plus className="size-3 shrink-0" aria-hidden />
-            <span className="text-[12px]">New</span>
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              className="col-span-full flex cursor-pointer items-center gap-2 border-b border-r border-zinc-800 px-3 py-1.5 text-left text-sm text-zinc-500 transition-all hover:bg-zinc-900/60"
+              onClick={addTask}
+            >
+              <Plus className="size-3 shrink-0" aria-hidden />
+              <span className="text-[12px]">New</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

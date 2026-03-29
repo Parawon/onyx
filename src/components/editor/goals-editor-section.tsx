@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
+import { useUserRole } from "@/components/providers/role-provider";
 import { EditorSaveStatusIndicator } from "./editor-save-status-indicator";
 import { EditorSaveStateProvider } from "./editor-save-state-provider";
 
@@ -14,6 +15,13 @@ const BlockNoteCanvas = dynamic(
 
 export function GoalsEditorSection(props: { scope?: string }) {
   const scope = props.scope ?? "main";
+  const { hasRole } = useUserRole();
+  const meta = useQuery(
+    api.goals.getSubPageMeta,
+    scope !== "main" ? { slug: scope } : "skip",
+  );
+  const isOwnPersonalPage = meta?.isOwn ?? false;
+  const canEdit = hasRole("editor") || isOwnPersonalPage;
   const data = useQuery(api.goals.get, { scope });
 
   if (data === undefined) {
@@ -35,7 +43,6 @@ export function GoalsEditorSection(props: { scope?: string }) {
   return (
     <EditorSaveStateProvider>
       <div className="flex flex-col bg-background px-12 pb-6 pt-6">
-        {/* Exact h-5 rail: indicator always renders same line box (invisible placeholder when idle) */}
         <div className="flex h-5 shrink-0 items-center justify-end">
           <EditorSaveStatusIndicator />
         </div>
@@ -46,6 +53,7 @@ export function GoalsEditorSection(props: { scope?: string }) {
               kind="goals"
               goalsScope={scope}
               initialContent={data.content}
+              editable={canEdit}
             />
           </div>
         </div>

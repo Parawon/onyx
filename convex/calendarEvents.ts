@@ -1,27 +1,25 @@
 import { v } from "convex/values";
-import type { QueryCtx } from "./_generated/server";
+import {
+  canSeeOwned,
+  getAuthInfo,
+  humanizeSlug,
+  requireRole,
+  type AuthInfo,
+  type Role,
+  ROLE_LEVELS,
+} from "./shared";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 
 const MAX_EVENTS_PER_QUERY = 500;
-
-async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-  return identity.subject;
-}
 
 function normalizeGoalScope(scope: string | undefined) {
   return (scope ?? "main").trim() || "main";
 }
 
-function humanizeSlug(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+function hasMinRole(info: AuthInfo, min: Role): boolean {
+  const userLevel = ROLE_LEVELS[info.role as Role] ?? 0;
+  return userLevel >= ROLE_LEVELS[min];
 }
 
 type Blockish = {
@@ -153,11 +151,22 @@ async function resolveGoalLabel(ctx: QueryCtx, goalScope: string): Promise<strin
   return humanizeSlug(goalScope);
 }
 
-/** Public query: optional `goalScope` → all events for user, or one Goals workspace. */
+/** Resolve the ownerUserId for a goal scope by checking the goalsSubPages nav row. */
+async function resolveOwnerForScope(ctx: MutationCtx, goalScope: string): Promise<string | undefined> {
+  if (goalScope === "main") return undefined;
+  const nav = await ctx.db
+    .query("goalsSubPages")
+    .withIndex("by_slug", (q) => q.eq("slug", goalScope))
+    .first();
+  return nav?.ownerUserId;
+}
+
+/** Calendar events query. Ownership-filtered — personal events only visible to owner + superuser. */
 export const getCalendarEvents = query({
   args: { goalScope: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
+    const info = await getAuthInfo(ctx);
+    if (!info) {
       return [];
     }
     const scopeFilter = args.goalScope !== undefined ? normalizeGoalScope(args.goalScope) : null;
@@ -173,6 +182,9 @@ export const getCalendarEvents = query({
     const labelCache = new Map<string, string>();
     const result = [];
     for (const row of rows) {
+      if (!canSeeOwned(row.ownerUserId, info.subject, info.role)) {
+        continue;
+      }
       let goalLabel = labelCache.get(row.goalScope);
       if (goalLabel === undefined) {
         goalLabel = await resolveGoalLabel(ctx, row.goalScope);
@@ -195,6 +207,7 @@ export const getCalendarEvents = query({
   },
 });
 
+/** Upsert a calendar event. Editors+ for shared scopes; team members for their personal scope. */
 export const upsertEvent = mutation({
   args: {
     goalScope: v.string(),
@@ -207,11 +220,22 @@ export const upsertEvent = mutation({
     assigneeUserIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const goalScope = normalizeGoalScope(args.goalScope);
     const sourceTaskId = args.sourceTaskId.trim();
     if (sourceTaskId.length === 0) {
       throw new Error("Invalid task id.");
+    }
+
+    const ownerUserId = await resolveOwnerForScope(ctx, goalScope);
+    if (ownerUserId) {
+      if (!canSeeOwned(ownerUserId, info.subject, info.role)) {
+        throw new Error("Forbidden: not your personal page");
+      }
+    } else if (!hasMinRole(info, "editor")) {
+      throw new Error("Forbidden: insufficient permissions");
     }
 
     const existing = await ctx.db
@@ -231,6 +255,7 @@ export const upsertEvent = mutation({
       status: args.status,
       urgency: args.urgency,
       assigneeUserIds: args.assigneeUserIds,
+      ownerUserId,
     };
 
     if (existing) {
@@ -242,18 +267,31 @@ export const upsertEvent = mutation({
   },
 });
 
+/** Remove a calendar event. Same permission logic as upsert. */
 export const removeEvent = mutation({
   args: {
     goalScope: v.string(),
     sourceTaskId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const goalScope = normalizeGoalScope(args.goalScope);
     const sourceTaskId = args.sourceTaskId.trim();
     if (sourceTaskId.length === 0) {
       return null;
     }
+
+    const ownerUserId = await resolveOwnerForScope(ctx, goalScope);
+    if (ownerUserId) {
+      if (!canSeeOwned(ownerUserId, info.subject, info.role)) {
+        throw new Error("Forbidden: not your personal page");
+      }
+    } else if (!hasMinRole(info, "editor")) {
+      throw new Error("Forbidden: insufficient permissions");
+    }
+
     const existing = await ctx.db
       .query("calendarEvents")
       .withIndex("by_goalScope_and_sourceTaskId", (q) =>
@@ -267,18 +305,27 @@ export const removeEvent = mutation({
   },
 });
 
-/**
- * Reconcile `calendarEvents` for a Goals document after save.
- * Removes events for tasks no longer marked in-calendar or removed from the doc.
- */
+/** Reconcile calendarEvents for a Goals document after save. Same permission logic. */
 export const syncFromGoalsDocument = mutation({
   args: {
     goalScope: v.string(),
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await requireRole(ctx, "team_member");
+    const info = await getAuthInfo(ctx);
+    if (!info) throw new Error("Not authenticated");
     const goalScope = normalizeGoalScope(args.goalScope);
+
+    const ownerUserId = await resolveOwnerForScope(ctx, goalScope);
+    if (ownerUserId) {
+      if (!canSeeOwned(ownerUserId, info.subject, info.role)) {
+        throw new Error("Forbidden: not your personal page");
+      }
+    } else if (!hasMinRole(info, "editor")) {
+      throw new Error("Forbidden: insufficient permissions");
+    }
+
     const tasks = extractInCalendarTasksFromGoalsDocument(args.content);
     const wantIds = new Set(tasks.map((t) => t.id));
 
@@ -304,6 +351,7 @@ export const syncFromGoalsDocument = mutation({
         status: t.status,
         urgency: t.urgency,
         assigneeUserIds: t.assigneeUserIds,
+        ownerUserId,
       };
       const row = await ctx.db
         .query("calendarEvents")
