@@ -86,6 +86,19 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
 
+  /** Finance data pages — spreadsheet-like tables for financial data. */
+  financePages: defineTable({
+    title: v.string(),
+    slug: v.string(),
+    /** Clerk subject of the creator. Only creator (or admin+) can delete. */
+    ownerUserId: v.string(),
+    /** JSON-encoded table data: { columns: string[], rows: string[][] } */
+    tableData: v.string(),
+    order: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_order", ["order"]),
+
   /** Singleton editable rich-text blocks on the dashboard (e.g. description). `key` is a unique identifier. */
   dashboardContent: defineTable({
     key: v.string(),

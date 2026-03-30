@@ -23,13 +23,8 @@ import { useUserRole } from "@/components/providers/role-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** Width of the icon rail — must match collapsed sidebar (`w-[52px]`) so icons stay aligned when toggling. */
 const ICON_RAIL = "w-[52px]";
-
-/** Same pixel size in expanded and collapsed nav (Lucide default stroke looks best at 18px here). */
 const NAV_ICON_CLASS = "size-[1.125rem] shrink-0";
-
-/** Same height as `DashboardTopBar` (`h-20` / 5rem). */
 const SIDEBAR_HEADER_ROW = "h-20 shrink-0 border-b border-zinc-800";
 
 type NavEntry = {
@@ -57,8 +52,7 @@ const NAV_ITEMS: NavEntry[] = [
     label: "Notes",
     Icon: FileText,
     isActive: (pathname) =>
-      pathname === "/notes" ||
-      pathname.startsWith("/documents/"),
+      pathname === "/notes" || pathname.startsWith("/documents/"),
   },
   {
     href: "/calendar",
@@ -78,7 +72,7 @@ const FINANCE_NAV: NavEntry = {
   href: "/finance",
   label: "Finance",
   Icon: Wallet,
-  isActive: (pathname) => pathname === "/finance",
+  isActive: (pathname) => pathname === "/finance" || pathname.startsWith("/finance/"),
 };
 
 const ADMIN_NAV: NavEntry = {
@@ -262,7 +256,6 @@ export function DocumentSidebar() {
   const isGoalsChildRoute = pathname.startsWith("/goals/");
   const effectiveGoalsOpen = isGoalsChildRoute ? true : goalsOpen;
 
-  // Close Goals dropdown when navigating away from Goals entirely.
   useEffect(() => {
     if (!isInGoals) setGoalsOpen(false);
   }, [isInGoals]);
@@ -271,7 +264,6 @@ export function DocumentSidebar() {
   const isCalendarChildRoute = pathname.startsWith("/calendar/");
   const effectiveCalendarOpen = isCalendarChildRoute ? true : calendarOpen;
 
-  // Close Calendar dropdown when navigating away from Calendar entirely.
   useEffect(() => {
     if (!isInCalendar) setCalendarOpen(false);
   }, [isInCalendar]);
@@ -284,7 +276,6 @@ export function DocumentSidebar() {
         !narrow && "font-['Inter',var(--font-inter),sans-serif] text-sm tracking-tight",
       )}
     >
-      {/* No top padding — header row must align with DashboardTopBar (h-20) at the top of the viewport */}
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col overflow-hidden pb-8",
@@ -345,22 +336,19 @@ export function DocumentSidebar() {
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
           aria-label="Main navigation"
         >
-          {/* Reserve top sixth of the nav column; links sit below (scroll if needed) */}
           <div className="h-1/6 min-h-0 shrink-0" aria-hidden />
           <div
             className={cn(
-              "flex min-h-0 flex-1 flex-col overflow-y-auto",
+              "flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
               narrow ? "items-center gap-2" : "gap-1",
             )}
           >
             {navWithActive.map(({ href, label, Icon, active }) => {
               if (narrow) {
-                return (
-                  <CollapsedNavIcon key={label} href={href} label={label} Icon={Icon} isActive={active} />
-                );
+                return <CollapsedNavIcon key={label} href={href} label={label} Icon={Icon} isActive={active} />;
               }
 
-              if (href === "/goals" && !narrow) {
+              if (href === "/goals") {
                 return (
                   <ExpandableNavItem
                     key={label}
@@ -371,11 +359,7 @@ export function DocumentSidebar() {
                     expanded={effectiveGoalsOpen}
                     onOpen={() => setGoalsOpen(true)}
                     onToggleFromChevron={() => {
-                      // Allow closing only when on `/goals`. Never close on child pages.
-                      if (pathname.startsWith("/goals/")) {
-                        setGoalsOpen(true);
-                        return;
-                      }
+                      if (pathname.startsWith("/goals/")) { setGoalsOpen(true); return; }
                       setGoalsOpen((v) => !v);
                     }}
                   >
@@ -384,7 +368,7 @@ export function DocumentSidebar() {
                 );
               }
 
-              if (href === "/calendar" && !narrow) {
+              if (href === "/calendar") {
                 return (
                   <ExpandableNavItem
                     key={label}
@@ -395,11 +379,7 @@ export function DocumentSidebar() {
                     expanded={effectiveCalendarOpen}
                     onOpen={() => setCalendarOpen(true)}
                     onToggleFromChevron={() => {
-                      // Allow closing only when on `/calendar`. Never close on child pages.
-                      if (pathname.startsWith("/calendar/")) {
-                        setCalendarOpen(true);
-                        return;
-                      }
+                      if (pathname.startsWith("/calendar/")) { setCalendarOpen(true); return; }
                       setCalendarOpen((v) => !v);
                     }}
                   >

@@ -14,6 +14,7 @@ import type * as calendarEvents from "../calendarEvents.js";
 import type * as calendarShared from "../calendarShared.js";
 import type * as dashboardContent from "../dashboardContent.js";
 import type * as documents from "../documents.js";
+import type * as finance from "../finance.js";
 import type * as goals from "../goals.js";
 import type * as shared from "../shared.js";
 import type * as users from "../users.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   calendarShared: typeof calendarShared;
   dashboardContent: typeof dashboardContent;
   documents: typeof documents;
+  finance: typeof finance;
   goals: typeof goals;
   shared: typeof shared;
   users: typeof users;
